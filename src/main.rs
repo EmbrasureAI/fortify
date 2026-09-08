@@ -659,7 +659,11 @@ async fn main() -> ExitCode {
                         "Save this script in a directory listed by your Zsh fpath."
                     }
                     CompletionShell::Fish => {
-                        "Save this script as ~/.config/fish/completions/fortify.fish."
+                        if compat::command_name() == "embrasure" {
+                            "Save this script as ~/.config/fish/completions/embrasure.fish."
+                        } else {
+                            "Save this script as ~/.config/fish/completions/fortify.fish."
+                        }
                     }
                     CompletionShell::Powershell => {
                         "Save this script and source it from your PowerShell profile."

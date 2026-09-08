@@ -833,39 +833,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "fortify-cli"
-version = "0.6.0"
-dependencies = [
- "anyhow",
- "assert_cmd",
- "base64 0.23.1",
- "chrono",
- "clap",
- "clap_complete",
- "directories",
- "gcp_auth",
- "globset",
- "jsonschema",
- "keyring",
- "openssl",
- "predicates",
- "rand 0.8.7",
- "ratatui",
- "reqwest",
- "serde",
- "serde_json",
- "serde_yaml_ng",
- "sha2 0.11.0",
- "tempfile",
- "tokio",
- "url",
- "uuid",
- "webbrowser",
- "windows-sys 0.61.2",
- "winresource",
-]
-
-[[package]]
 name = "endi"
 version = "1.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1005,6 +972,39 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cb4cb245038516f5f85277875cdaa4f7d2c9a0fa0468de06ed190163b1581fcf"
 dependencies = [
  "percent-encoding",
+]
+
+[[package]]
+name = "fortify-cli"
+version = "0.6.0"
+dependencies = [
+ "anyhow",
+ "assert_cmd",
+ "base64 0.23.1",
+ "chrono",
+ "clap",
+ "clap_complete",
+ "directories",
+ "gcp_auth",
+ "globset",
+ "jsonschema",
+ "keyring",
+ "openssl",
+ "predicates",
+ "rand 0.8.7",
+ "ratatui",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "serde_yaml_ng",
+ "sha2 0.11.0",
+ "tempfile",
+ "tokio",
+ "url",
+ "uuid",
+ "webbrowser",
+ "windows-sys 0.61.2",
+ "winresource",
 ]
 
 [[package]]

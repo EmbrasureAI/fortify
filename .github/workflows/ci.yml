@@ -43,7 +43,7 @@ jobs:
           python-version: "3.12"
       - run: python3 -m pip install --require-hashes -r packaging/sqlglot-requirements.txt
       - run: cargo fmt --check
-      - run: cargo clippy --all-targets --all-features -- -D warnings
+      - run: cargo clippy --locked --all-targets --all-features -- -D warnings
       - run: cargo test --locked
       - run: cargo test --locked --all-features
       - run: python3 packaging/test_installers.py --binary target/debug/fortify
@@ -55,6 +55,12 @@ jobs:
     steps:
       - name: Check out source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Validate PowerShell sources with Windows PowerShell 5.1
+        shell: powershell
+        run: .\packaging\windows\Test-PowerShell.ps1
+      - name: Validate PowerShell sources with PowerShell 7
+        shell: pwsh
+        run: .\packaging\windows\Test-PowerShell.ps1
       - name: Install Rust
         shell: pwsh
         run: |
@@ -79,12 +85,6 @@ jobs:
           $version = ($metadata.packages | Where-Object name -eq 'fortify-cli').version
           if (-not $version) { throw 'Could not resolve the Fortify package version.' }
           .\packaging\windows\Test-PeMetadata.ps1 -BinaryPath .\target\x86_64-pc-windows-msvc\release\fortify.exe -Version $version
-      - name: Validate PowerShell sources with Windows PowerShell 5.1
-        shell: powershell
-        run: .\packaging\windows\Test-PowerShell.ps1
-      - name: Validate PowerShell sources with PowerShell 7
-        shell: pwsh
-        run: .\packaging\windows\Test-PowerShell.ps1
       - name: Package and test Windows archive
         shell: pwsh
         run: |

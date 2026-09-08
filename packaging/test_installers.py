@@ -36,7 +36,7 @@ def run():
             for command in ("fortify", "embrasure"):
                 shutil.copy2(binary, payload / command)
             archive = fixtures / f"{name}.tar.gz"
-            with tarfile.open(archive, "w:gz") as tar:
+            with tarfile.open(archive, "w:gz", compresslevel=1) as tar:
                 tar.add(payload, arcname=name)
             sums.append(f"{hashlib.sha256(archive.read_bytes()).hexdigest()}  {archive.name}")
         (fixtures / "SHA256SUMS").write_text("\n".join(sums) + "\n")

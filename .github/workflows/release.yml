@@ -50,7 +50,7 @@ jobs:
           python-version: "3.12"
       - run: python3 -m pip install --require-hashes -r packaging/sqlglot-requirements.txt
       - run: cargo fmt --check
-      - run: cargo clippy --all-targets --all-features -- -D warnings
+      - run: cargo clippy --locked --all-targets --all-features -- -D warnings
       - run: cargo test --locked
 
   build:
@@ -139,6 +139,12 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - name: Validate PowerShell sources with Windows PowerShell 5.1
+        shell: powershell
+        run: .\packaging\windows\Test-PowerShell.ps1
+      - name: Validate PowerShell sources with PowerShell 7
+        shell: pwsh
+        run: .\packaging\windows\Test-PowerShell.ps1
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.12"
@@ -154,12 +160,6 @@ jobs:
           cargo test --locked --target x86_64-pc-windows-msvc
           cargo test --locked --all-features --target x86_64-pc-windows-msvc
           cargo build --release --locked --target x86_64-pc-windows-msvc
-      - name: Validate PowerShell sources with Windows PowerShell 5.1
-        shell: powershell
-        run: .\packaging\windows\Test-PowerShell.ps1
-      - name: Validate PowerShell sources with PowerShell 7
-        shell: pwsh
-        run: .\packaging\windows\Test-PowerShell.ps1
       - name: Verify Windows executable metadata
         shell: pwsh
         run: |
