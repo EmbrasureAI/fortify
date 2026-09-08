@@ -122,6 +122,55 @@ try {
         $env:Path = $savedProcessPath
     }
 
+    # Run the unmodified v0.5.4 installer against the legacy release layout,
+    # then let Fortify discover and upgrade its default installation in place.
+    $legacyStage = Join-Path $testRoot 'legacy-stage'
+    Expand-Archive -LiteralPath $ArchivePath -DestinationPath $legacyStage
+    $legacyName = "embrasure-${Version}-x86_64-pc-windows-msvc"
+    $canonicalPayload = Join-Path $legacyStage "fortify-${Version}-x86_64-pc-windows-msvc"
+    $legacyPayload = Join-Path $legacyStage $legacyName
+    Move-Item -LiteralPath $canonicalPayload -Destination $legacyPayload
+    $legacyArchive = Join-Path $testRoot "${legacyName}.zip"
+    Compress-Archive -LiteralPath $legacyPayload -DestinationPath $legacyArchive
+    $legacyHash = (Get-FileHash -LiteralPath $legacyArchive -Algorithm SHA256).Hash
+    $legacyInstaller = (Resolve-Path (Join-Path $PSScriptRoot '..\..\tests\fixtures\v0.5.4\install.ps1')).Path
+    $savedLocalAppData = $env:LOCALAPPDATA
+    try {
+        $env:LOCALAPPDATA = Join-Path $testRoot 'isolated-appdata'
+        Invoke-InstallerProcess -Arguments @(
+            '-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
+            '-File', $legacyInstaller, '-Version', $Version,
+            '-ArchivePath', $legacyArchive, '-ExpectedSha256', $legacyHash, '-NoPath', '-Quiet'
+        )
+        $legacyInstallRoot = Join-Path $env:LOCALAPPDATA 'Programs\Embrasure'
+        if (-not (Test-Path -LiteralPath (Join-Path $legacyInstallRoot '.embrasure-install'))) {
+            throw 'The v0.5.4 installer did not accept the legacy release layout.'
+        }
+        Invoke-InstallerProcess -Arguments @(
+            '-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
+            '-File', $installerScript, '-Version', $Version,
+            '-ArchivePath', $ArchivePath, '-ExpectedSha256', $archiveHash, '-NoPath', '-Quiet'
+        )
+        if ((Test-Path -LiteralPath (Join-Path $env:LOCALAPPDATA 'Programs\Fortify')) -or
+            -not (Test-Path -LiteralPath (Join-Path $legacyInstallRoot '.fortify-install'))) {
+            throw 'Fortify did not upgrade the owned legacy directory in place.'
+        }
+        foreach ($command in @('fortify', 'embrasure')) {
+            $aliasBinary = Join-Path $legacyInstallRoot "bin\${command}.exe"
+            if ((& $aliasBinary --version | Out-String).Trim() -ne "${command} ${Version}") {
+                throw "Upgraded ${command} alias is invalid."
+            }
+        }
+        Invoke-InstallerProcess -Arguments @(
+            '-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
+            '-File', $installerScript, '-Uninstall', '-NoPath', '-Quiet'
+        )
+        if (Test-Path -LiteralPath $legacyInstallRoot) { throw 'Legacy-root uninstall failed.' }
+    }
+    finally {
+        $env:LOCALAPPDATA = $savedLocalAppData
+    }
+
     $staleFile = Join-Path $installRoot 'stale-upgrade-file.txt'
     Set-Content -LiteralPath $staleFile -Value 'must be removed' -Encoding ASCII
     Invoke-InstallerProcess -Arguments $installArguments

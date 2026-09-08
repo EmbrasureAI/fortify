@@ -51,6 +51,17 @@ foreach ($invalidVersion in @('v1.2.3', '1.2', '1.2.3-beta', '01.2.3', 'vv1.2.3'
 $testRoot = Join-Path ([IO.Path]::GetTempPath()) ("fortify-powershell-test-$([guid]::NewGuid())")
 New-Item -ItemType Directory -Path $testRoot | Out-Null
 try {
+    $owned = Join-Path $testRoot 'owned'
+    New-Item -ItemType Directory -Path $owned | Out-Null
+    $legacyMarker = Join-Path $owned '.embrasure-install'
+    Set-Content -LiteralPath $legacyMarker -Value 'EmbrasureAI.Embrasure' -Encoding ASCII
+    if (-not (Test-OwnedInstallDirectory -Path $owned)) { throw 'Legacy ownership was rejected.' }
+    Set-Content -LiteralPath $legacyMarker -Value 'EmbrasureAI.Fortify' -Encoding ASCII
+    if (Test-OwnedInstallDirectory -Path $owned) { throw 'Mismatched ownership was accepted.' }
+    Remove-Item -LiteralPath $legacyMarker
+    Set-Content -LiteralPath (Join-Path $owned '.fortify-install') -Value 'EmbrasureAI.Fortify' -Encoding ASCII
+    if (-not (Test-OwnedInstallDirectory -Path $owned)) { throw 'Fortify ownership was rejected.' }
+
     $checksumFile = Join-Path $testRoot 'SHA256SUMS'
     $validHash = 'a' * 64
     Set-Content -LiteralPath $checksumFile -Value "${validHash}  artifact.zip" -Encoding ASCII

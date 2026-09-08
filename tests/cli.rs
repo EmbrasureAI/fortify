@@ -508,3 +508,64 @@ fn dry_run_conflicts_with_cloud() {
         .failure()
         .stderr(predicate::str::contains("cannot be used with"));
 }
+
+#[cfg(not(windows))]
+#[test]
+fn both_names_reuse_existing_oauth_cache_and_environment_overrides() {
+    use sha2::{Digest, Sha256};
+    let directory = tempfile::tempdir().unwrap();
+    let xdg = directory.path().join("config");
+    let legacy = xdg.join("embrasure-check");
+    fs::create_dir_all(legacy.join("oauth")).unwrap();
+    let config = r#"version: 1
+dbt:
+  project_dir: .
+  profile: analytics
+accounts:
+  - name: primary
+    account: org-account
+    user: DBT_CI
+    role: DBT_CI_ROLE
+    database: ANALYTICS
+    warehouse: CI_WH
+    production_schema: PROD
+    auth:
+      type: oauth_local
+"#;
+    fs::write(directory.path().join("embrasure-check.yml"), config).unwrap();
+    let digest = Sha256::digest(b"org-account:DBT_CI");
+    let filename = format!("{digest:x}.json");
+    let token = legacy.join("oauth").join(filename);
+    fs::write(&token, r#"{"account":"org-account","user":"DBT_CI","access_token":"test-only","refresh_token":null,"expires_at":4102444800}"#).unwrap();
+    for name in ["fortify", "embrasure"] {
+        let mut command = Command::cargo_bin(name).unwrap();
+        command
+            .current_dir(directory.path())
+            .env("XDG_CONFIG_HOME", &xdg)
+            .env_remove("FORTIFY_CHECK_CONFIG_DIR")
+            .env_remove("EMBRASURE_CHECK_CONFIG_DIR")
+            .args(["auth", "status", "--json"]);
+        command
+            .assert()
+            .success()
+            .stdout(predicate::str::contains("signed in"));
+    }
+    Command::cargo_bin("fortify")
+        .unwrap()
+        .current_dir(directory.path())
+        .env("FORTIFY_CHECK_CONFIG_DIR", directory.path().join("empty"))
+        .env("EMBRASURE_CHECK_CONFIG_DIR", &legacy)
+        .args(["auth", "status", "--json"])
+        .assert()
+        .code(3)
+        .stdout(predicate::str::contains("not signed in"));
+    Command::cargo_bin("fortify")
+        .unwrap()
+        .current_dir(directory.path())
+        .env_remove("FORTIFY_CHECK_CONFIG_DIR")
+        .env("EMBRASURE_CHECK_CONFIG_DIR", &legacy)
+        .args(["auth", "logout"])
+        .assert()
+        .success();
+    assert!(!token.exists());
+}

@@ -148,8 +148,34 @@ async fn self_replace(executable: &Path, version: &str) -> Result<()> {
         .path()
         .join(format!("fortify-{version}-{target}"))
         .join("fortify");
+    replace_binaries(&downloaded, executable)
+}
+
+#[cfg(not(windows))]
+fn replace_binaries(downloaded: &Path, executable: &Path) -> Result<()> {
+    // Installers ship identical copies. Only update a sibling we can identify
+    // as the same executable; never overwrite an unrelated command.
+    let sibling =
+        executable.with_file_name(if executable.file_name().is_some_and(|n| n == "fortify") {
+            "embrasure"
+        } else {
+            "fortify"
+        });
+    let update_sibling = fs::read(&sibling)
+        .ok()
+        .zip(fs::read(executable).ok())
+        .is_some_and(|(left, right)| left == right);
+    replace_binary(downloaded, executable)?;
+    if update_sibling {
+        replace_binary(downloaded, &sibling)?;
+    }
+    Ok(())
+}
+
+#[cfg(not(windows))]
+fn replace_binary(downloaded: &Path, executable: &Path) -> Result<()> {
     let replacement = replacement_path(executable)?;
-    fs::copy(&downloaded, &replacement).with_context(|| {
+    fs::copy(downloaded, &replacement).with_context(|| {
         format!(
             "could not write next to {}; check directory permissions",
             executable.display()
@@ -445,6 +471,26 @@ mod tests {
         );
         assert!(verify_checksum("release.tar.gz", archive, b"bad  release.tar.gz\n").is_err());
         assert!(verify_checksum("other.tar.gz", archive, sums.as_bytes()).is_err());
+    }
+
+    #[cfg(not(windows))]
+    #[test]
+    fn updates_matching_aliases_but_preserves_unrelated_commands() {
+        let dir = tempfile::tempdir().unwrap();
+        let canonical = dir.path().join("fortify");
+        let legacy = dir.path().join("embrasure");
+        let download = dir.path().join("download");
+        fs::write(&download, b"new").unwrap();
+        fs::write(&canonical, b"old").unwrap();
+        fs::write(&legacy, b"old").unwrap();
+        replace_binaries(&download, &legacy).unwrap();
+        assert_eq!(fs::read(&canonical).unwrap(), b"new");
+        assert_eq!(fs::read(&legacy).unwrap(), b"new");
+        fs::write(&legacy, b"unrelated").unwrap();
+        fs::write(&download, b"newer").unwrap();
+        replace_binaries(&download, &canonical).unwrap();
+        assert_eq!(fs::read(&canonical).unwrap(), b"newer");
+        assert_eq!(fs::read(&legacy).unwrap(), b"unrelated");
     }
 
     #[cfg(windows)]
