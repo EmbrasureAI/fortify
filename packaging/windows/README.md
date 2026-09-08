@@ -20,7 +20,7 @@ After the GitHub release exists:
 
 1. Extract `fortify-<version>-windows-package-manifests.zip`.
 2. Publish `scoop/fortify.json` to `EmbrasureAI/scoop-bucket` as `bucket/fortify.json`.
-3. Submit the three files under `winget/` to `microsoft/winget-pkgs` at `manifests/e/EmbrasureAI/Fortify/<version>/`.
+3. Submit the three `EmbrasureAI.Fortify.*` files under `winget/` to `microsoft/winget-pkgs` at `manifests/e/EmbrasureAI/Fortify/<version>/`.
 4. Verify `scoop install fortify/fortify` and `winget install --id EmbrasureAI.Fortify --exact` on clean Windows 11 machines.
 
 The Scoop manifest contains auto-update metadata for the bucket's release bot. WinGet updates require a new manifest submission.

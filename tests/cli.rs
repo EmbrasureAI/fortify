@@ -13,7 +13,7 @@ fn both_command_names_keep_their_version_and_completion_identity() {
             .stdout(format!("{name} {}\n", env!("CARGO_PKG_VERSION")));
         Command::cargo_bin(name)
             .unwrap()
-            .args(["completions", "bash"])
+            .args(["completion", "bash"])
             .assert()
             .success()
             .stdout(predicate::str::contains(format!("_{name}()")));
@@ -534,7 +534,8 @@ accounts:
 "#;
     fs::write(directory.path().join("embrasure-check.yml"), config).unwrap();
     let digest = Sha256::digest(b"org-account:DBT_CI");
-    let filename = format!("{digest:x}.json");
+    let hex: String = digest.iter().map(|byte| format!("{byte:02x}")).collect();
+    let filename = format!("{hex}.json");
     let token = legacy.join("oauth").join(filename);
     fs::write(&token, r#"{"account":"org-account","user":"DBT_CI","access_token":"test-only","refresh_token":null,"expires_at":4102444800}"#).unwrap();
     for name in ["fortify", "embrasure"] {
