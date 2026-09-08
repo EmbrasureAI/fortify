@@ -658,7 +658,7 @@ fn load_session() -> Result<CloudSession> {
 fn keyring_error(error: keyring::Error, context: &str) -> anyhow::Error {
     match error {
         keyring::Error::PlatformFailure(_) | keyring::Error::NoStorageAccess(_) => anyhow::anyhow!(
-            "{context}: secure storage is unavailable; on headless Linux, start and unlock Secret Service or set EMBRASURE_CLOUD_TOKEN and optional EMBRASURE_CLOUD_WORKSPACE_ID"
+            "{context}: secure storage is unavailable; on headless Linux, start and unlock Secret Service or set FORTIFY_CLOUD_TOKEN and optional FORTIFY_CLOUD_WORKSPACE_ID"
         ),
         other => anyhow::Error::new(other).context(context.to_owned()),
     }

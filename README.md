@@ -11,7 +11,7 @@ Fortify is open-source, local dbt PR validation for Snowflake, Databricks, and B
 - Builds changed models and critical downstream paths in temporary schemas, then cleans them up.
 - Runs dbt tests and compares schema, row counts, null rates, cardinality, ranges, and primary keys with production.
 - Shows affected downstream models and columns.
-- Connects directly to your warehouse, with no Fortify account or data sent to Fortify.
+- Connects directly to your warehouse, with no Embrasure account or data sent to Embrasure.
 - Includes a [`verify`](.agents/skills/verify/SKILL.md) skill that runs the agent check-and-fix loop.
 
 `fortify auth login` uses Snowflake OAuth. Databricks uses a token supplied through the configured environment variable. BigQuery uses Google Application Default Credentials. The warehouse identity needs production read access and permission to create and remove temporary schemas or datasets.

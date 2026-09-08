@@ -280,7 +280,7 @@ fn bundled_sqlglot_path() -> Result<Option<PathBuf>> {
             return Ok(Some(path));
         }
         bail!(
-            "EMBRASURE_SQLGLOT_PATH does not contain a SQLGlot package: {}",
+            "FORTIFY_SQLGLOT_PATH (or legacy EMBRASURE_SQLGLOT_PATH) does not contain a SQLGlot package: {}",
             path.display()
         );
     }

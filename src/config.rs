@@ -921,6 +921,7 @@ fn default_threads() -> u16 {
 fn default_dbt_command() -> String {
     "dbt".into()
 }
+// Preserve the warehouse namespace so existing runs remain discoverable by clean.
 fn default_schema_prefix() -> String {
     "EMBRASURE_CHECK".into()
 }

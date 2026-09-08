@@ -18,6 +18,10 @@ on:
 env:
   RELEASE_TAG: v0.6.0
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
 permissions:
   contents: read
 
