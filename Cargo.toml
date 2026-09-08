@@ -1,20 +1,25 @@
 [package]
-name = "embrasure-cli"
-version = "0.5.4"
+name = "fortify-cli"
+default-run = "fortify"
+version = "0.6.0"
 edition = "2024"
 rust-version = "1.88"
 build = "build.rs"
-description = "Embrasure CLI for validating dbt changes against production warehouse data"
+description = "Fortify CLI for validating dbt changes against production warehouse data"
 license = "Apache-2.0"
-repository = "https://github.com/EmbrasureAI/embrasure-cli"
+repository = "https://github.com/EmbrasureAI/fortify"
 homepage = "https://embrasure.ai"
 readme = "README.md"
 keywords = ["dbt", "data-warehouse", "data-quality", "testing", "cli"]
 categories = ["command-line-utilities", "development-tools::testing"]
 
 [[bin]]
-name = "embrasure"
+name = "fortify"
 path = "src/main.rs"
+
+[[bin]]
+name = "embrasure"
+path = "src/legacy.rs"
 
 [features]
 default = []
@@ -60,8 +65,8 @@ lto = "thin"
 strip = true
 
 [package.metadata.winresource]
-ProductName = "Embrasure"
+ProductName = "Fortify"
 FileDescription = "Validate dbt changes against production warehouse data"
 CompanyName = "Embrasure, Inc."
 LegalCopyright = "Copyright 2026 Embrasure, Inc."
-OriginalFilename = "embrasure.exe"
+OriginalFilename = "fortify.exe"

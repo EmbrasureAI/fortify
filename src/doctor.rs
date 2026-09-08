@@ -607,7 +607,7 @@ impl DoctorReport {
         } else {
             style.bad(&style.bold("NOT READY"))
         };
-        let mut output = format!("embrasure doctor: {readiness}\n",);
+        let mut output = format!("fortify doctor: {readiness}\n",);
         for item in &self.checks {
             let icon = match item.status {
                 "pass" => style.good("✓"),

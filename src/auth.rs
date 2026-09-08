@@ -133,12 +133,14 @@ async fn resolve_snowflake(
 ) -> Result<SnowflakeResolvedAuth> {
     match &config.auth {
         AuthConfig::OauthLocal => {
-            let token = load_or_refresh_local_token(account).await.with_context(|| {
-                format!(
-                    "browser login is not ready for {}; run `embrasure auth login --account {}`",
-                    account.name, account.name
-                )
-            })?;
+            let token = load_or_refresh_local_token(account)
+                .await
+                .with_context(|| {
+                    format!(
+                        "browser login is not ready for {}; run `fortify auth login --account {}`",
+                        account.name, account.name
+                    )
+                })?;
             Ok(SnowflakeResolvedAuth::OAuth { token })
         }
         AuthConfig::Oauth { token_env } => Ok(SnowflakeResolvedAuth::OAuth {
@@ -361,7 +363,7 @@ async fn login(account: &AccountConfig) -> Result<String> {
         .append_pair("code_challenge", &challenge)
         .append_pair("code_challenge_method", "S256");
 
-    eprintln!("embrasure: opening Snowflake sign-in in your browser");
+    eprintln!("fortify: opening Snowflake sign-in in your browser");
     if webbrowser::open(authorize.as_str()).is_err() {
         eprintln!("Open this URL to sign in:\n{authorize}");
     }
@@ -504,7 +506,7 @@ fn save_cached(account: &AccountConfig, response: &TokenResponse) -> Result<()> 
 
 fn token_path(account: &AccountConfig) -> Result<PathBuf> {
     let snowflake = snowflake(account)?;
-    let root = if let Some(value) = env::var_os("EMBRASURE_CHECK_CONFIG_DIR") {
+    let root = if let Some(value) = crate::compat::var_os("EMBRASURE_CHECK_CONFIG_DIR") {
         PathBuf::from(value)
     } else {
         default_config_root()?

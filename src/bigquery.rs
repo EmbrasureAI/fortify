@@ -349,7 +349,7 @@ impl BigQueryClient {
             .bearer_auth(token.as_str())
             .header(
                 header::USER_AGENT,
-                concat!("embrasure/", env!("CARGO_PKG_VERSION")),
+                concat!("fortify/", env!("CARGO_PKG_VERSION")),
             )
             .send()
             .await

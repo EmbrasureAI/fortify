@@ -301,7 +301,7 @@ fn lines(state: &State, frame: usize) -> Vec<Line<'static>> {
     };
     let mut lines = vec![Line::from(vec![
         Span::styled(
-            "Embrasure review",
+            "Fortify review",
             Style::default().add_modifier(Modifier::BOLD),
         ),
         Span::raw(format!(" · {} · {elapsed}{outcome}", state.base)),
@@ -398,7 +398,7 @@ mod tests {
             .iter()
             .map(|cell| cell.symbol())
             .collect::<String>();
-        assert!(content.contains("Embrasure review · origin/main"));
+        assert!(content.contains("Fortify review · origin/main"));
         assert!(content.contains("Build selected models  2 / 4"));
     }
 

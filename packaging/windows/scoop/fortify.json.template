@@ -25,5 +25,5 @@
         },
         "extract_dir": "fortify-$version-x86_64-pc-windows-msvc"
     },
-    "pre_install": "if (Test-Path \"$scoopdir/apps/fortify/current\") { throw 'Uninstall fortify before installing embrasure; both provide the same commands.' }"
+    "pre_install": "if (Test-Path \"$scoopdir/apps/embrasure/current\") { throw 'Uninstall embrasure before installing fortify; both provide the same commands.' }"
 }

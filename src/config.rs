@@ -1008,7 +1008,7 @@ accounts:
 
     #[test]
     fn example_config_stays_valid() {
-        let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("embrasure-check.example.yml");
+        let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("fortify-check.example.yml");
         Config::load(&path).unwrap();
     }
 

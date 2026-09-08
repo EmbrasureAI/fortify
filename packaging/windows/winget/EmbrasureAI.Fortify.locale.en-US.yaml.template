@@ -1,22 +1,22 @@
 # yaml-language-server: $schema=https://aka.ms/winget-manifest.defaultLocale.1.12.0.schema.json
 
-PackageIdentifier: EmbrasureAI.Embrasure
+PackageIdentifier: EmbrasureAI.Fortify
 PackageVersion: @VERSION@
 PackageLocale: en-US
 Publisher: Embrasure, Inc.
 PublisherUrl: https://embrasure.ai
 PublisherSupportUrl: https://github.com/EmbrasureAI/fortify/issues
 Author: Embrasure, Inc.
-PackageName: Embrasure
+PackageName: Fortify
 PackageUrl: https://github.com/EmbrasureAI/fortify
 License: Apache-2.0
 LicenseUrl: https://github.com/EmbrasureAI/fortify/blob/main/LICENSE
 Copyright: Copyright 2026 Embrasure, Inc.
 ShortDescription: Validate dbt changes against production warehouse data
 Description: >-
-  Embrasure is an open-source CLI that builds changed dbt models in temporary
+  Fortify is an open-source CLI that builds changed dbt models in temporary
   Snowflake schemas and compares them with production before a pull request is reviewed.
-Moniker: embrasure
+Moniker: fortify
 Tags:
 - cli
 - data-engineering

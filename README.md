@@ -1,27 +1,39 @@
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="assets/embrasure-lockup-ivory.svg">
-    <img src="assets/embrasure-lockup-ink.svg" alt="Embrasure" width="300">
-  </picture>
-</p>
-
-<p align="center"><sub><em>“An embrasure is an opening in a fortified wall, built to see and respond without giving up protection.”</em></sub></p>
+# Fortify
 
 <p align="center">
-  <a href="https://github.com/EmbrasureAI/embrasure-cli/actions/workflows/github-code-scanning/codeql"><img src="https://github.com/EmbrasureAI/embrasure-cli/actions/workflows/github-code-scanning/codeql/badge.svg" alt="CodeQL"></a>
+  <a href="https://github.com/EmbrasureAI/fortify/actions/workflows/github-code-scanning/codeql"><img src="https://github.com/EmbrasureAI/fortify/actions/workflows/github-code-scanning/codeql/badge.svg" alt="CodeQL"></a>
 </p>
 
 <p align="center"><strong>Catch unexpected data changes before a dbt PR is reviewed.</strong></p>
 
-Embrasure is open-source, local dbt PR validation for Snowflake, Databricks, and BigQuery:
+Fortify is open-source, local dbt PR validation for Snowflake, Databricks, and BigQuery:
 
 - Builds changed models and critical downstream paths in temporary schemas, then cleans them up.
 - Runs dbt tests and compares schema, row counts, null rates, cardinality, ranges, and primary keys with production.
 - Shows affected downstream models and columns.
-- Connects directly to your warehouse, with no Embrasure account or data sent to Embrasure.
+- Connects directly to your warehouse, with no Fortify account or data sent to Fortify.
 - Includes a [`verify`](.agents/skills/verify/SKILL.md) skill that runs the agent check-and-fix loop.
 
-`embrasure auth login` uses Snowflake OAuth. Databricks uses a token supplied through the configured environment variable. BigQuery uses Google Application Default Credentials. The warehouse identity needs production read access and permission to create and remove temporary schemas or datasets.
+`fortify auth login` uses Snowflake OAuth. Databricks uses a token supplied through the configured environment variable. BigQuery uses Google Application Default Credentials. The warehouse identity needs production read access and permission to create and remove temporary schemas or datasets.
+
+## Upgrading from Embrasure
+
+Fortify is the new name for Embrasure CLI. The `embrasure` command,
+`embrasure-check.yml`, and `EMBRASURE_*` environment variables remain supported
+through v0.x. New projects use `fortify-check.yml`; `--config` takes precedence,
+then the Fortify file, then the legacy file. `FORTIFY_*` variables take precedence
+over their legacy equivalents. Existing credentials and warehouse cleanup markers
+stay in place.
+
+Update GitHub workflows to `uses: EmbrasureAI/fortify@v1`. GitHub does not
+redirect Actions after a repository rename. Existing pinned CLI versions remain
+available. If an older standalone updater only installs `embrasure`, rerun the
+installer below to add `fortify`.
+
+For Homebrew, run `brew update && brew upgrade embrasureai/tap/embrasure` to
+migrate the installed formula. Scoop users can keep updating `embrasure`; to
+switch package names, uninstall `embrasure` before installing `fortify`. Do the
+same for WinGet package IDs to avoid competing command aliases.
 
 ## Snowflake quickstart
 
@@ -33,15 +45,15 @@ source .venv/bin/activate
 python -m pip install "dbt-core>=1.5,<2" "dbt-snowflake>=1.5,<2" "sqlglot>=30,<31"
 ```
 
-Then install Embrasure on macOS or Linux with Homebrew:
+Then install Fortify on macOS or Linux with Homebrew:
 
 ```sh
-brew install embrasureai/tap/embrasure
-embrasure init
-embrasure auth login
-embrasure doctor
-embrasure check --dry-run
-embrasure check
+brew install embrasureai/tap/fortify
+fortify init
+fortify auth login
+fortify doctor
+fortify check --dry-run
+fortify check
 ```
 
 By default, `check` compares your branch with `origin/main`.
@@ -49,7 +61,7 @@ By default, `check` compares your branch with `origin/main`.
 <details>
 <summary>If dbt is managed by your project</summary>
 
-Embrasure uses the dbt Core and Snowflake adapter versions already installed by your project. Activate the project's normal environment, or set `dbt.command` in `embrasure-check.yml` to the wrapper your project uses.
+Fortify uses the dbt Core and Snowflake adapter versions already installed by your project. Activate the project's normal environment, or set `dbt.command` in `fortify-check.yml` to the wrapper your project uses.
 
 </details>
 
@@ -81,7 +93,7 @@ accounts:
         token_env: DATABRICKS_TOKEN
 ```
 
-The integration uses a Databricks SQL warehouse and Unity Catalog. Set `DATABRICKS_TOKEN`, then run `embrasure doctor` and `embrasure check`. Incremental baselines currently require managed Delta tables and use Unity Catalog shallow clones; `doctor` verifies that a suitable table and grants are available.
+The integration uses a Databricks SQL warehouse and Unity Catalog. Set `DATABRICKS_TOKEN`, then run `fortify doctor` and `fortify check`. Incremental baselines currently require managed Delta tables and use Unity Catalog shallow clones; `doctor` verifies that a suitable table and grants are available.
 
 ## BigQuery
 
@@ -91,14 +103,14 @@ Install the BigQuery dbt adapter:
 python -m pip install "dbt-core>=1.5,<2" "dbt-bigquery>=1.5,<2" "sqlglot>=30,<31"
 ```
 
-For local development, create Google Application Default Credentials, then initialize Embrasure from the dbt project root:
+For local development, create Google Application Default Credentials, then initialize Fortify from the dbt project root:
 
 ```sh
 gcloud auth application-default login
-embrasure init
-embrasure doctor
-embrasure check --dry-run
-embrasure check
+fortify init
+fortify doctor
+fortify check --dry-run
+fortify check
 ```
 
 `init` detects an active BigQuery dbt profile and writes the version 2 provider configuration. The equivalent manual configuration is:
@@ -120,15 +132,15 @@ accounts:
         type: application_default
 ```
 
-Application Default Credentials also support `GOOGLE_APPLICATION_CREDENTIALS` and an attached Google Cloud service account. `maximum_bytes_billed` applies the same per-query cap to dbt builds and Embrasure comparison queries. Incremental baselines use BigQuery table clones; clone mode seeds candidates with table copies. The source and temporary datasets must be in the same location, and table-clone restrictions still apply.
+Application Default Credentials also support `GOOGLE_APPLICATION_CREDENTIALS` and an attached Google Cloud service account. `maximum_bytes_billed` applies the same per-query cap to dbt builds and Fortify comparison queries. Incremental baselines use BigQuery table clones; clone mode seeds candidates with table copies. The source and temporary datasets must be in the same location, and table-clone restrictions still apply.
 
 If you do not use Homebrew, use the installer:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/EmbrasureAI/embrasure-cli/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/EmbrasureAI/fortify/main/install.sh | sh
 ```
 
-The installer writes to `/usr/local/bin` when writable, otherwise `~/.local/bin`. Set `EMBRASURE_INSTALL_DIR` to choose another directory.
+The installer writes to `/usr/local/bin` when writable, otherwise `~/.local/bin`. Set `FORTIFY_INSTALL_DIR` to choose another directory.
 
 <details>
 <summary><strong>Installing on Windows (Windows 11 or Windows Server 2022+)</strong></summary>
@@ -136,47 +148,47 @@ The installer writes to `/usr/local/bin` when writable, otherwise `~/.local/bin`
 Download the PowerShell installer from GitHub Releases, inspect it, then run it:
 
 ```powershell
-$installer = Join-Path $env:TEMP 'embrasure-install.ps1'
-Invoke-WebRequest https://github.com/EmbrasureAI/embrasure-cli/releases/latest/download/install.ps1 -OutFile $installer
+$installer = Join-Path $env:TEMP 'fortify-install.ps1'
+Invoke-WebRequest https://github.com/EmbrasureAI/fortify/releases/latest/download/install.ps1 -OutFile $installer
 Get-Content $installer
 Unblock-File $installer
 & $installer
 ```
 
-The installer verifies the release checksum, installs Embrasure under `%LOCALAPPDATA%\Programs\Embrasure`, and adds its `bin` directory to your user `PATH`. It does not need administrator access. Open a new terminal when it finishes.
+The installer verifies the release checksum, installs Fortify under `%LOCALAPPDATA%\Programs\Fortify`, and adds its `bin` directory to your user `PATH`. It does not need administrator access. Open a new terminal when it finishes.
 
 `Unblock-File` removes the internet-zone marker after you inspect the script. It does not change PowerShell's execution policy or verify the publisher. If your organization blocks the script, use the portable ZIP from the same release.
 
 Installer options:
 
-- Pin a release: `& $installer -Version 0.5.4`
+- Pin a release: `& $installer -Version 0.6.0`
 - Run without prompts: `& $installer -Quiet`
 - Uninstall: `& $installer -Uninstall`
 
-Uninstalling removes Embrasure and its `PATH` entry, but keeps your configuration, credentials, reports, and logs.
+Uninstalling removes Fortify and its `PATH` entry, but keeps your configuration, credentials, reports, and logs.
 
-Scoop users can install from Embrasure's official bucket:
+Scoop users can install from Fortify's official bucket:
 
 ```powershell
-scoop bucket add embrasure https://github.com/EmbrasureAI/scoop-bucket
-scoop install embrasure/embrasure
+scoop bucket add fortify https://github.com/EmbrasureAI/scoop-bucket
+scoop install fortify/fortify
 ```
 
 WinGet manifests are generated with each release. After the first WinGet listing is accepted:
 
 ```powershell
-winget install --id EmbrasureAI.Embrasure --exact
+winget install --id EmbrasureAI.Fortify --exact
 ```
 
 </details>
 
-Use Embrasure from an existing Snowflake, Databricks, or BigQuery dbt project whose unchanged production models are already materialized. Embrasure uses those existing relations as the comparison baseline.
+Use Fortify from an existing Snowflake, Databricks, or BigQuery dbt project whose unchanged production models are already materialized. Fortify uses those existing relations as the comparison baseline.
 
 For Snowflake and BigQuery, `init` reads the active dbt profile and asks only for missing values. Databricks uses the version 2 configuration shown above. Use `--config <path>` before or after any subcommand to choose another config file.
 
-Continue only when `embrasure doctor` reports `READY`. Embrasure generates a temporary dbt profile for its own runs; it does not modify your existing profile or production models.
+Continue only when `fortify doctor` reports `READY`. Fortify generates a temporary dbt profile for its own runs; it does not modify your existing profile or production models.
 
-If dbt is installed in `.venv`, run `source .venv/bin/activate` in each new shell before using Embrasure.
+If dbt is installed in `.venv`, run `source .venv/bin/activate` in each new shell before using Fortify.
 
 Example result:
 
@@ -216,8 +228,8 @@ The default validates changed models and every path to a critical model. Critica
 Intersect the changed set with one or more explicit models:
 
 ```sh
-embrasure check --select orders --select order_items
-embrasure check --select orders --downstream none
+fortify check --select orders --select order_items
+fortify check --select orders --downstream none
 ```
 
 An unknown, ambiguous, unchanged, or out-of-scope selection fails instead of returning a misleading pass.
@@ -225,8 +237,8 @@ An unknown, ambiguous, unchanged, or out-of-scope selection fails instead of ret
 Preview the plan without creating schemas or querying warehouse data:
 
 ```sh
-embrasure check --dry-run
-embrasure check --dry-run --json
+fortify check --dry-run
+fortify check --dry-run --json
 ```
 
 Dry runs use local dbt parsing but do not resolve credentials, create warehouse schemas, or query warehouse data.
@@ -236,9 +248,9 @@ Dry runs use local dbt parsing but do not resolve credentials, create warehouse 
 JSON output is versioned and stably ordered. Progress goes to stderr, so stdout contains one JSON document.
 
 ```sh
-embrasure check --json
-embrasure check --json --markdown embrasure-check.md
-embrasure check --json --report-version 1
+fortify check --json
+fortify check --json --markdown fortify-check.md
+fortify check --json --report-version 1
 ```
 
 Published contracts: [v1](schemas/report-v1.schema.json), [v2](schemas/report-v2.schema.json), [v3](schemas/report-v3.schema.json), and [v4](schemas/report-v4.schema.json). V4 adds column lineage and bounded warehouse execution links and is the default; older versions remain available with `--report-version`.
@@ -253,7 +265,7 @@ Published contracts: [v1](schemas/report-v1.schema.json), [v2](schemas/report-v2
 Agent loop:
 
 ```text
-Run `embrasure check --base origin/main --json`.
+Run `fortify check --base origin/main --json`.
 Exit 1: fix every finding and rerun.
 Exit 2: resolve or explain every coverage gap.
 Exit 3: fix the setup or execution failure.
@@ -278,15 +290,15 @@ checks:
     primary_key: [customer_id]
 ```
 
-With a primary key, Embrasure reports added, removed, and changed rows plus per-column mismatch counts. Null or duplicate keys block the value join. Without a key, grouped rows and their multiplicities preserve duplicate-only differences. Query examples are bounded by the configured sample, column, and value limits.
+With a primary key, Fortify reports added, removed, and changed rows plus per-column mismatch counts. Null or duplicate keys block the value join. Without a key, grouped rows and their multiplicities preserve duplicate-only differences. Query examples are bounded by the configured sample, column, and value limits.
 
 Only persisted dbt models are supported in `ref()`. Query checks accept one `SELECT`, `WITH`, or `VALUES` expression; other Jinja and multi-statement SQL are rejected. Removed checks are reported as incomplete coverage instead of silently passing.
 
 ## GitHub Actions
 
-The composite action installs Embrasure. Install dbt with your project's normal locked setup; this example uses `requirements.txt`. Keep the check in a visible `run` step so exit codes and secrets remain explicit.
+The composite action installs Fortify. Install dbt with your project's normal locked setup; this example uses `requirements.txt`. Keep the check in a visible `run` step so exit codes and secrets remain explicit.
 
-In `embrasure-check.yml`, configure the account to read the CI secret:
+In `fortify-check.yml`, configure the account to read the CI secret:
 
 ```yaml
 auth:
@@ -296,7 +308,7 @@ auth:
 
 ```yaml
 jobs:
-  embrasure:
+  fortify:
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -308,8 +320,8 @@ jobs:
         with:
           python-version: "3.12"
       - run: python3 -m pip install -r requirements.txt
-      - uses: EmbrasureAI/embrasure-cli@v1
-      - run: embrasure check --base origin/main --json
+      - uses: EmbrasureAI/fortify@v1
+      - run: fortify check --base origin/main --json
         env:
           SNOWFLAKE_PROGRAMMATIC_ACCESS_TOKEN: ${{ secrets.SNOWFLAKE_PROGRAMMATIC_ACCESS_TOKEN }}
 ```
@@ -321,8 +333,8 @@ jobs:
 List managed temporary schemas older than six hours:
 
 ```sh
-embrasure clean
-embrasure clean --older-than 24 --yes
+fortify clean
+fortify clean --older-than 24 --yes
 ```
 
 `clean` searches only configured account databases and verifies the prefix and ownership marker before removal.
@@ -330,17 +342,17 @@ embrasure clean --older-than 24 --yes
 Check for or install an update:
 
 ```sh
-embrasure update --check
-embrasure update
+fortify update --check
+fortify update
 ```
 
 Generate shell completion scripts:
 
 ```sh
-embrasure completion bash
-embrasure completion zsh
-embrasure completion fish
-embrasure completion powershell
+fortify completion bash
+fortify completion zsh
+fortify completion fish
+fortify completion powershell
 ```
 
 ## Troubleshooting
@@ -355,15 +367,15 @@ Every existing incremental model needs a stable baseline copy, including in `ful
 
 ### Incremental candidate seeding fails
 
-The validation role needs `SELECT` on the production source and `CREATE TABLE` in the target schema. Run `embrasure doctor`. If the relation should not use clone mode, rerun with `--incremental-mode full-refresh`.
+The validation role needs `SELECT` on the production source and `CREATE TABLE` in the target schema. Run `fortify doctor`. If the relation should not use clone mode, rerun with `--incremental-mode full-refresh`.
 
 ## Configuration and safety
 
 Use `--config <path>` before or after any subcommand to choose another config file.
 
-See the [example configuration](embrasure-check.example.yml) and [enterprise setup guide](docs/enterprise.md) for service credentials, multiple accounts, model policies, filters, thresholds, concurrency, external changes, cross-account dependencies, Metabase, and grants.
+See the [example configuration](fortify-check.example.yml) and [enterprise setup guide](docs/enterprise.md) for service credentials, multiple accounts, model policies, filters, thresholds, concurrency, external changes, cross-account dependencies, Metabase, and grants.
 
-Every temporary schema has a unique name and ownership marker. Query results are materialized in a dedicated run-owned schema so they cannot collide with dbt model aliases. Embrasure checks ownership before removal and treats cleanup failures as execution failures. Use a dedicated identity that can read and clone only the production tables under test and create temporary schemas in the required databases or catalogs. SQL validation is not a side-effect sandbox, so the identity must not be able to call unsafe procedures, functions, or external integrations.
+Every temporary schema has a unique name and ownership marker. Query results are materialized in a dedicated run-owned schema so they cannot collide with dbt model aliases. Fortify checks ownership before removal and treats cleanup failures as execution failures. Use a dedicated identity that can read and clone only the production tables under test and create temporary schemas in the required databases or catalogs. SQL validation is not a side-effect sandbox, so the identity must not be able to call unsafe procedures, functions, or external integrations.
 
 [Security and data flow](docs/security-and-data-flow.md) documents network connections, local files, returned data, credentials, cleanup, updates, and release verification.
 
@@ -385,6 +397,6 @@ cargo clippy --all-targets --all-features -- -D warnings
 cargo test --locked
 ```
 
-The opt-in Snowflake suite uses `EMBRASURE_RUN_SNOWFLAKE_TESTS=1` and the `EMBRASURE_TEST_SNOWFLAKE_*` account, user, role, database, warehouse, and token variables. It covers exact keyed passes and changes, duplicate-only unkeyed differences, incremental cloning, cleanup, and 100,000 synthetic rows.
+The opt-in Snowflake suite uses `FORTIFY_RUN_SNOWFLAKE_TESTS=1` and the `FORTIFY_TEST_SNOWFLAKE_*` account, user, role, database, warehouse, and token variables. It covers exact keyed passes and changes, duplicate-only unkeyed differences, incremental cloning, cleanup, and 100,000 synthetic rows.
 
 Contributions are welcome under the [Apache 2.0 license](LICENSE).

@@ -447,7 +447,7 @@ pub async fn login() -> Result<CloudSession> {
             "device_id",
             &format!("rust-cli-{}", loopback::random_string(24)),
         )
-        .append_pair("device_name", "Embrasure CLI")
+        .append_pair("device_name", "Fortify CLI")
         .append_pair("platform", env::consts::OS)
         .append_pair("client", "cli")
         .append_pair("client_version", env!("CARGO_PKG_VERSION"));
@@ -561,19 +561,19 @@ pub async fn logout() -> Result<()> {
 }
 
 async fn valid_session() -> Result<CloudSession> {
-    if let Ok(access_token) = env::var("EMBRASURE_CLOUD_TOKEN")
+    if let Ok(access_token) = crate::compat::var("EMBRASURE_CLOUD_TOKEN")
         && !access_token.trim().is_empty()
     {
         return Ok(CloudSession {
             access_token,
             refresh_token: String::new(),
             expires_at: "9999-12-31T23:59:59Z".into(),
-            workspace_id: env::var("EMBRASURE_CLOUD_WORKSPACE_ID").unwrap_or_default(),
+            workspace_id: crate::compat::var("EMBRASURE_CLOUD_WORKSPACE_ID").unwrap_or_default(),
             api_base_url: api_base_url(),
         });
     }
     let session =
-        load_session().context("not signed in to Embrasure Cloud; run `embrasure cloud login`")?;
+        load_session().context("not signed in to Embrasure Cloud; run `fortify cloud login`")?;
     let expires = DateTime::parse_from_rfc3339(&session.expires_at)?.with_timezone(&Utc);
     if expires > Utc::now() + chrono::Duration::seconds(30) {
         return Ok(session);
@@ -596,7 +596,7 @@ async fn refresh_session(session: &CloudSession) -> Result<CloudSession> {
     let body = response.text().await.unwrap_or_default();
     if !status.is_success() {
         bail!(
-            "cloud session expired: {}; run `embrasure cloud login`",
+            "cloud session expired: {}; run `fortify cloud login`",
             api_error(&body)
         );
     }
@@ -665,14 +665,14 @@ fn keyring_error(error: keyring::Error, context: &str) -> anyhow::Error {
 }
 
 fn api_base_url() -> String {
-    env::var("EMBRASURE_API_URL")
+    crate::compat::var("EMBRASURE_API_URL")
         .unwrap_or_else(|_| "https://api.embrasure.ai".into())
         .trim_end_matches('/')
         .to_owned()
 }
 
 fn web_base_url(api: &str) -> String {
-    env::var("EMBRASURE_WEB_URL").unwrap_or_else(|_| {
+    crate::compat::var("EMBRASURE_WEB_URL").unwrap_or_else(|_| {
         if api.contains("localhost") || api.contains("127.0.0.1") {
             "http://localhost:3000".into()
         } else {

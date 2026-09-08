@@ -4,12 +4,12 @@ param(
     [string]$Version = 'latest',
 
     [ValidateNotNullOrEmpty()]
-    [string]$InstallDir = (Join-Path $env:LOCALAPPDATA 'Programs\Fortify'),
+    [string]$InstallDir = (Join-Path $env:LOCALAPPDATA 'Programs\Embrasure'),
 
     [switch]$Quiet,
 
     [ValidateNotNullOrEmpty()]
-    [string]$LogPath = (Join-Path $env:LOCALAPPDATA 'Fortify\logs\installer.log'),
+    [string]$LogPath = (Join-Path $env:LOCALAPPDATA 'Embrasure\logs\installer.log'),
 
     [switch]$NoPath,
 
@@ -35,12 +35,12 @@ $ProgressPreference = 'SilentlyContinue'
 [Net.ServicePointManager]::SecurityProtocol = `
     [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
 
-$repository = 'EmbrasureAI/fortify'
+$repository = 'EmbrasureAI/embrasure-cli'
 $target = 'x86_64-pc-windows-msvc'
 $maximumArchiveBytes = 268435456
 $maximumArchiveEntries = 4096
-$installMarkerName = '.fortify-install'
-$installMarkerValue = 'EmbrasureAI.Fortify'
+$installMarkerName = '.embrasure-install'
+$installMarkerValue = 'EmbrasureAI.Embrasure'
 
 function Write-InstallerLog {
     param([Parameter(Mandatory = $true)][string]$Message)
@@ -52,11 +52,11 @@ function Write-InstallerLog {
     Add-Content -LiteralPath $resolvedLogPath -Value "${timestamp} ${Message}" -Encoding UTF8
 }
 
-function Resolve-FortifyVersion {
+function Resolve-EmbrasureVersion {
     param([Parameter(Mandatory = $true)][string]$RequestedVersion)
 
     if ($RequestedVersion -eq 'latest') {
-        $headers = @{ Accept = 'application/vnd.github+json'; 'User-Agent' = 'fortify-installer' }
+        $headers = @{ Accept = 'application/vnd.github+json'; 'User-Agent' = 'embrasure-installer' }
         $release = Invoke-RestMethod `
             -Uri "https://api.github.com/repos/${repository}/releases/latest" `
             -Headers $headers
@@ -67,7 +67,7 @@ function Resolve-FortifyVersion {
         return $Matches[1]
     }
     if ($RequestedVersion -notmatch '^(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)$') {
-        throw "Invalid Fortify version: ${RequestedVersion}"
+        throw "Invalid Embrasure version: ${RequestedVersion}"
     }
     return $RequestedVersion
 }
@@ -93,7 +93,7 @@ function Read-ExpectedChecksum {
     return $found[0]
 }
 
-function Assert-FortifyHash {
+function Assert-EmbrasureHash {
     param(
         [Parameter(Mandatory = $true)][string]$Path,
         [Parameter(Mandatory = $true)][ValidatePattern('^[0-9A-Fa-f]{64}$')][string]$Expected
@@ -125,15 +125,9 @@ function Get-SafeInstallDirectory {
 function Test-OwnedInstallDirectory {
     param([Parameter(Mandatory = $true)][string]$Path)
 
-    foreach ($identity in @(
-        @{ Name = $installMarkerName; Value = $installMarkerValue },
-        @{ Name = '.embrasure-install'; Value = 'EmbrasureAI.Embrasure' }
-    )) {
-        $marker = Join-Path $Path $identity.Name
-        if ((Test-Path -LiteralPath $marker -PathType Leaf) -and
-            [IO.File]::ReadAllText($marker).Trim() -eq $identity.Value) { return $true }
-    }
-    return $false
+    $marker = Join-Path $Path $installMarkerName
+    if (-not (Test-Path -LiteralPath $marker -PathType Leaf)) { return $false }
+    return [IO.File]::ReadAllText($marker).Trim() -eq $installMarkerValue
 }
 
 function Assert-SafeZipArchive {
@@ -181,19 +175,18 @@ function Assert-SafeZipArchive {
     }
 }
 
-function Test-FortifyPayload {
+function Test-EmbrasurePayload {
     param(
         [Parameter(Mandatory = $true)][string]$PayloadRoot,
         [Parameter(Mandatory = $true)][string]$ExpectedVersion
     )
 
-    $product = if ([version]$ExpectedVersion -lt [version]'0.6.0') { 'embrasure' } else { 'fortify' }
-    $binary = Join-Path $PayloadRoot "bin\${product}.exe"
+    $binary = Join-Path $PayloadRoot 'bin\embrasure.exe'
     if (-not (Test-Path -LiteralPath $binary -PathType Leaf)) {
-        throw 'Windows archive is missing bin\fortify.exe.'
+        throw 'Windows archive is missing bin\embrasure.exe.'
     }
     $wheels = @(Get-ChildItem `
-        -LiteralPath (Join-Path $PayloadRoot "libexec\${product}\python") `
+        -LiteralPath (Join-Path $PayloadRoot 'libexec\embrasure\python') `
         -Filter 'sqlglot-*.whl' `
         -File `
         -ErrorAction SilentlyContinue)
@@ -201,15 +194,8 @@ function Test-FortifyPayload {
         throw 'Windows archive must contain exactly the pinned SQLGlot 30.7.0 wheel.'
     }
     $reportedVersion = (& $binary --version 2>&1 | Out-String).Trim()
-    if ($LASTEXITCODE -ne 0 -or $reportedVersion -ne "${product} ${ExpectedVersion}") {
+    if ($LASTEXITCODE -ne 0 -or $reportedVersion -ne "embrasure ${ExpectedVersion}") {
         throw "Windows archive reports an unexpected version: ${reportedVersion}"
-    }
-    if ([version]$ExpectedVersion -ge [version]'0.6.0') {
-        $legacyBinary = Join-Path $PayloadRoot 'bin\embrasure.exe'
-        $legacyVersion = (& $legacyBinary --version 2>&1 | Out-String).Trim()
-        if ($LASTEXITCODE -ne 0 -or $legacyVersion -ne "embrasure ${ExpectedVersion}") {
-            throw 'Windows archive is missing a working embrasure compatibility executable.'
-        }
     }
 }
 
@@ -242,13 +228,13 @@ function Get-SafeUpdateCleanupDirectory {
     $leaf = Split-Path -Leaf $directory
     $temporaryRoot = [IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd('\', '/')
     if (-not (Test-SamePath -Left $parent -Right $temporaryRoot) -or
-        $leaf -notmatch '^(?:fortify|embrasure)-update-[A-Za-z0-9_-]+$') {
-        throw "Refusing to clean an update directory not created by Fortify: ${directory}"
+        $leaf -notmatch '^embrasure-update-[A-Za-z0-9_-]+$') {
+        throw "Refusing to clean an update directory not created by Embrasure: ${directory}"
     }
     return $directory
 }
 
-function Add-FortifyToUserPath {
+function Add-EmbrasureToUserPath {
     param([Parameter(Mandatory = $true)][string]$BinDirectory)
 
     $current = [Environment]::GetEnvironmentVariable('Path', 'User')
@@ -262,7 +248,7 @@ function Add-FortifyToUserPath {
     }
 }
 
-function Remove-FortifyFromUserPath {
+function Remove-EmbrasureFromUserPath {
     param([Parameter(Mandatory = $true)][string]$BinDirectory)
 
     $current = [Environment]::GetEnvironmentVariable('Path', 'User')
@@ -272,7 +258,7 @@ function Remove-FortifyFromUserPath {
     [Environment]::SetEnvironmentVariable('Path', ($entries -join ';'), 'User')
 }
 
-function Install-FortifyArchive {
+function Install-EmbrasureArchive {
     param(
         [Parameter(Mandatory = $true)][string]$Path,
         [Parameter(Mandatory = $true)][string]$Destination,
@@ -283,22 +269,18 @@ function Install-FortifyArchive {
     $safeDestination = Get-SafeInstallDirectory -Path $Destination
     $parentDirectory = Split-Path -Parent $safeDestination
     New-Item -ItemType Directory -Path $parentDirectory -Force | Out-Null
-    $packageRootName = [IO.Path]::GetFileNameWithoutExtension($Path)
-    if ($packageRootName -ne "fortify-${ArchiveVersion}-${target}" -and
-        $packageRootName -ne "embrasure-${ArchiveVersion}-${target}") {
-        throw "Unexpected archive name: ${packageRootName}"
-    }
+    $packageRootName = "embrasure-${ArchiveVersion}-${target}"
     Assert-SafeZipArchive -Path $Path -ExpectedRoot $packageRootName
 
     $identifier = [guid]::NewGuid().ToString('N')
-    $extractionDirectory = Join-Path $parentDirectory ".fortify-extract-${identifier}"
-    $backupDirectory = Join-Path $parentDirectory ".fortify-backup-${identifier}"
+    $extractionDirectory = Join-Path $parentDirectory ".embrasure-extract-${identifier}"
+    $backupDirectory = Join-Path $parentDirectory ".embrasure-backup-${identifier}"
     $installedNewPayload = $false
     $movedOldPayload = $false
     try {
         Expand-Archive -LiteralPath $Path -DestinationPath $extractionDirectory
         $payloadRoot = Join-Path $extractionDirectory $packageRootName
-        Test-FortifyPayload -PayloadRoot $payloadRoot -ExpectedVersion $ArchiveVersion
+        Test-EmbrasurePayload -PayloadRoot $payloadRoot -ExpectedVersion $ArchiveVersion
         [IO.File]::WriteAllText(
             (Join-Path $payloadRoot $installMarkerName),
             $installMarkerValue,
@@ -307,7 +289,7 @@ function Install-FortifyArchive {
 
         if (Test-Path -LiteralPath $safeDestination) {
             if (-not (Test-OwnedInstallDirectory -Path $safeDestination)) {
-                throw "Refusing to replace an installation directory not owned by Fortify: ${safeDestination}"
+                throw "Refusing to replace an installation directory not owned by Embrasure: ${safeDestination}"
             }
             Move-Item -LiteralPath $safeDestination -Destination $backupDirectory
             $movedOldPayload = $true
@@ -316,7 +298,7 @@ function Install-FortifyArchive {
         $installedNewPayload = $true
 
         if (-not $SkipPath) {
-            Add-FortifyToUserPath -BinDirectory (Join-Path $safeDestination 'bin')
+            Add-EmbrasureToUserPath -BinDirectory (Join-Path $safeDestination 'bin')
         }
         if ($movedOldPayload) {
             Remove-Item -LiteralPath $backupDirectory -Recurse -Force
@@ -347,7 +329,7 @@ function Install-FortifyArchive {
     }
 }
 
-function Uninstall-Fortify {
+function Uninstall-Embrasure {
     param(
         [Parameter(Mandatory = $true)][string]$Destination,
         [switch]$KeepPath
@@ -356,16 +338,16 @@ function Uninstall-Fortify {
     $safeDestination = Get-SafeInstallDirectory -Path $Destination
     if (Test-Path -LiteralPath $safeDestination) {
         if (-not (Test-OwnedInstallDirectory -Path $safeDestination)) {
-            throw "Refusing to remove an installation directory not owned by Fortify: ${safeDestination}"
+            throw "Refusing to remove an installation directory not owned by Embrasure: ${safeDestination}"
         }
         Remove-Item -LiteralPath $safeDestination -Recurse -Force
     }
     if (-not $KeepPath) {
-        Remove-FortifyFromUserPath -BinDirectory (Join-Path $safeDestination 'bin')
+        Remove-EmbrasureFromUserPath -BinDirectory (Join-Path $safeDestination 'bin')
     }
 }
 
-function Invoke-FortifyInstall {
+function Invoke-EmbrasureInstall {
     $safeInstallDir = Get-SafeInstallDirectory -Path $InstallDir
     $cleanupDirectory = $null
     if ($CleanupArchiveDirectory) {
@@ -376,9 +358,9 @@ function Invoke-FortifyInstall {
     }
     if ($Uninstall) {
         Write-InstallerLog "Uninstalling from ${safeInstallDir}."
-        Uninstall-Fortify -Destination $safeInstallDir -KeepPath:$NoPath
+        Uninstall-Embrasure -Destination $safeInstallDir -KeepPath:$NoPath
         Write-InstallerLog 'Uninstall completed.'
-        if (-not $Quiet) { Write-Host 'Fortify was uninstalled. User configuration and credentials were preserved.' }
+        if (-not $Quiet) { Write-Host 'Embrasure was uninstalled. User configuration and credentials were preserved.' }
         return
     }
 
@@ -387,21 +369,20 @@ function Invoke-FortifyInstall {
         if ($null -ne $parent) { $parent.WaitForExit() }
     }
 
-    $resolvedVersion = Resolve-FortifyVersion -RequestedVersion $Version
-    $product = if ([version]$resolvedVersion -lt [version]'0.6.0') { 'embrasure' } else { 'fortify' }
-    $packageName = "${product}-${resolvedVersion}-${target}.zip"
+    $resolvedVersion = Resolve-EmbrasureVersion -RequestedVersion $Version
+    $packageName = "embrasure-${resolvedVersion}-${target}.zip"
     $temporary = $null
     $packagePath = $ArchivePath
     try {
         if ([string]::IsNullOrEmpty($packagePath)) {
-            $temporary = Join-Path ([IO.Path]::GetTempPath()) ("fortify-install-" + [guid]::NewGuid())
+            $temporary = Join-Path ([IO.Path]::GetTempPath()) ("embrasure-install-" + [guid]::NewGuid())
             New-Item -ItemType Directory -Path $temporary | Out-Null
             $packagePath = Join-Path $temporary $packageName
             $checksumPath = Join-Path $temporary 'SHA256SUMS'
             $baseUrl = "https://github.com/${repository}/releases/download/v${resolvedVersion}"
-            $headers = @{ 'User-Agent' = 'fortify-installer' }
+            $headers = @{ 'User-Agent' = 'embrasure-installer' }
             Write-InstallerLog "Downloading ${packageName} from ${baseUrl}."
-            if (-not $Quiet) { Write-Host "Downloading Fortify ${resolvedVersion}..." }
+            if (-not $Quiet) { Write-Host "Downloading Embrasure ${resolvedVersion}..." }
             Invoke-WebRequest -UseBasicParsing -Headers $headers -Uri "${baseUrl}/${packageName}" -OutFile $packagePath
             Invoke-WebRequest -UseBasicParsing -Headers $headers -Uri "${baseUrl}/SHA256SUMS" -OutFile $checksumPath
             $ExpectedSha256 = Read-ExpectedChecksum -ChecksumPath $checksumPath -FileName $packageName
@@ -410,16 +391,16 @@ function Invoke-FortifyInstall {
             throw 'A valid expected SHA-256 is required with an existing archive.'
         }
 
-        Assert-FortifyHash -Path $packagePath -Expected $ExpectedSha256
+        Assert-EmbrasureHash -Path $packagePath -Expected $ExpectedSha256
         Write-InstallerLog "Checksum verified for ${packageName}."
-        Install-FortifyArchive `
+        Install-EmbrasureArchive `
             -Path $packagePath `
             -Destination $safeInstallDir `
             -ArchiveVersion $resolvedVersion `
             -SkipPath:$NoPath
-        Write-InstallerLog "Installed Fortify ${resolvedVersion} to ${safeInstallDir}."
+        Write-InstallerLog "Installed Embrasure ${resolvedVersion} to ${safeInstallDir}."
         if (-not $Quiet) {
-            Write-Host "Installed Fortify ${resolvedVersion}. Open a new terminal, then run 'fortify doctor'."
+            Write-Host "Installed Embrasure ${resolvedVersion}. Open a new terminal, then run 'embrasure doctor'."
         }
     }
     catch {
@@ -443,15 +424,6 @@ function Invoke-FortifyInstall {
     }
 }
 
-if (-not $PSBoundParameters.ContainsKey('InstallDir')) {
-    $legacyInstallDir = Join-Path $env:LOCALAPPDATA 'Programs\Embrasure'
-    if (-not (Test-Path -LiteralPath $InstallDir) -and
-        (Test-Path -LiteralPath $legacyInstallDir) -and
-        (Test-OwnedInstallDirectory -Path (Get-SafeInstallDirectory -Path $legacyInstallDir))) {
-        $InstallDir = $legacyInstallDir
-    }
-}
-
 if ($MyInvocation.InvocationName -ne '.') {
-    Invoke-FortifyInstall
+    Invoke-EmbrasureInstall
 }

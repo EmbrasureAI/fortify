@@ -16,8 +16,8 @@ Set-StrictMode -Version 3.0
 $ErrorActionPreference = 'Stop'
 
 $installerScript = (Resolve-Path (Join-Path $PSScriptRoot '..\..\install.ps1')).Path
-$testRoot = Join-Path $env:RUNNER_TEMP 'Embrasure ZIP lifecycle ü'
-$installRoot = Join-Path $testRoot 'Programs with spaces\Embrasure'
+$testRoot = Join-Path $env:RUNNER_TEMP 'Fortify ZIP lifecycle ü'
+$installRoot = Join-Path $testRoot 'Programs with spaces\Fortify'
 $configRoot = Join-Path $testRoot 'preserved-user-data'
 $configFile = Join-Path $configRoot 'config.yml'
 $logPath = Join-Path $testRoot 'logs\installer.log'
@@ -66,25 +66,25 @@ try {
     )
     Invoke-InstallerProcess -Arguments $installArguments
 
-    $binary = Join-Path $installRoot 'bin\embrasure.exe'
+    $binary = Join-Path $installRoot 'bin\fortify.exe'
     if (-not (Test-Path -LiteralPath $binary -PathType Leaf)) {
         throw 'Installed executable is missing.'
     }
-    if (-not (Test-Path -LiteralPath (Join-Path $installRoot '.embrasure-install') -PathType Leaf)) {
+    if (-not (Test-Path -LiteralPath (Join-Path $installRoot '.fortify-install') -PathType Leaf)) {
         throw 'Installed ownership marker is missing.'
     }
     $reportedVersion = (& $binary --version | Out-String).Trim()
-    if ($reportedVersion -ne "embrasure ${Version}") {
+    if ($reportedVersion -ne "fortify ${Version}") {
         throw "Installed executable reports an unexpected version: ${reportedVersion}"
     }
     $wheels = @(Get-ChildItem `
-        -LiteralPath (Join-Path $installRoot 'libexec\embrasure\python') `
+        -LiteralPath (Join-Path $installRoot 'libexec\fortify\python') `
         -Filter 'sqlglot-*.whl' `
         -File)
     if ($wheels.Count -ne 1 -or $wheels[0].Name -ne 'sqlglot-30.7.0-py3-none-any.whl') {
         throw 'Installed SQLGlot inventory is incorrect.'
     }
-    $exampleConfig = Join-Path $installRoot 'docs\embrasure-check.example.yml'
+    $exampleConfig = Join-Path $installRoot 'docs\fortify-check.example.yml'
     $doctorJson = & $binary --config $exampleConfig doctor --read-only --json | Out-String
     if ($LASTEXITCODE -ne 3) {
         throw "Packaged doctor returned an unexpected exit code: ${LASTEXITCODE}"
@@ -114,9 +114,9 @@ try {
     $savedProcessPath = $env:Path
     try {
         $env:Path = $childPath
-        $probe = 'embrasure.exe --version | Out-Null; if ($LASTEXITCODE -ne 0) { exit 1 }'
+        $probe = 'fortify.exe --version | Out-Null; if ($LASTEXITCODE -ne 0) { exit 1 }'
         & $installerPowerShell -NoLogo -NoProfile -NonInteractive -Command $probe
-        if ($LASTEXITCODE -ne 0) { throw 'A new PowerShell process could not run embrasure from PATH.' }
+        if ($LASTEXITCODE -ne 0) { throw 'A new PowerShell process could not run fortify from PATH.' }
     }
     finally {
         $env:Path = $savedProcessPath
@@ -133,7 +133,7 @@ try {
         throw 'Same-version reinstall duplicated the PATH entry.'
     }
 
-    $updateRoot = Join-Path ([IO.Path]::GetTempPath()) "embrasure-update-$([guid]::NewGuid().ToString('N'))"
+    $updateRoot = Join-Path ([IO.Path]::GetTempPath()) "fortify-update-$([guid]::NewGuid().ToString('N'))"
     New-Item -ItemType Directory -Path $updateRoot | Out-Null
     $updateArchive = Join-Path $updateRoot (Split-Path -Leaf $ArchivePath)
     Set-Content -LiteralPath $updateArchive -Value 'corrupt until the parent exits' -Encoding ASCII
@@ -162,7 +162,7 @@ try {
         throw 'The update helper did not remove its private temporary directory.'
     }
     $updateRoot = $null
-    if ((& $binary --version | Out-String).Trim() -ne "embrasure ${Version}") {
+    if ((& $binary --version | Out-String).Trim() -ne "fortify ${Version}") {
         throw 'The wait-for-parent update did not preserve a runnable installation.'
     }
 
@@ -171,7 +171,7 @@ try {
     $invalidArchive = Join-Path $testRoot 'invalid-layout.zip'
     $zip = [IO.Compression.ZipFile]::Open($invalidArchive, [IO.Compression.ZipArchiveMode]::Create)
     try {
-        [void]$zip.CreateEntry("embrasure-${Version}-x86_64-pc-windows-msvc/docs/missing-binary.txt")
+        [void]$zip.CreateEntry("fortify-${Version}-x86_64-pc-windows-msvc/docs/missing-binary.txt")
     }
     finally {
         $zip.Dispose()
@@ -194,7 +194,7 @@ try {
     New-Item -ItemType Directory -Path $unownedRoot | Out-Null
     Set-Content -LiteralPath $unownedSentinel -Value 'preserve' -Encoding ASCII
     try {
-        Install-EmbrasureArchive `
+        Install-FortifyArchive `
             -Path $ArchivePath `
             -Destination $unownedRoot `
             -ArchiveVersion $Version `
@@ -205,7 +205,7 @@ try {
         if ($_.Exception.Message -eq 'Installer accepted an unowned directory.') { throw }
     }
     try {
-        Uninstall-Embrasure -Destination $unownedRoot
+        Uninstall-Fortify -Destination $unownedRoot
         throw 'Uninstaller accepted an unowned directory.'
     }
     catch {
@@ -215,7 +215,7 @@ try {
         throw 'Uninstaller damaged an unowned directory.'
     }
     try {
-        Install-EmbrasureArchive `
+        Install-FortifyArchive `
             -Path $invalidArchive `
             -Destination $installRoot `
             -ArchiveVersion $Version `

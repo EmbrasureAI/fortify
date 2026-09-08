@@ -4,6 +4,7 @@ mod clean;
 #[cfg(feature = "cloud-demo")]
 mod cloud;
 mod compare;
+mod compat;
 mod config;
 mod databricks;
 mod dbt;
@@ -86,14 +87,14 @@ impl From<IncrementalModeArg> for IncrementalMode {
 
 #[derive(Debug, Parser)]
 #[command(
-    name = "embrasure",
+    name = compat::command_name(),
     version,
     about = "Validate dbt changes against production warehouse data"
 )]
 struct Cli {
     /// Configuration file.
-    #[arg(long, global = true, default_value = "embrasure-check.yml")]
-    config: PathBuf,
+    #[arg(long, global = true)]
+    config: Option<PathBuf>,
     #[command(subcommand)]
     command: Command,
 }
@@ -197,7 +198,7 @@ enum Command {
         #[arg(value_enum)]
         shell: CompletionShell,
     },
-    /// List or remove old Embrasure-managed temporary schemas or datasets.
+    /// List or remove old Fortify-managed temporary schemas or datasets.
     Clean {
         /// Minimum schema or dataset age in hours.
         #[arg(long, default_value_t = 6)]
@@ -209,7 +210,7 @@ enum Command {
         #[arg(long)]
         json: bool,
     },
-    /// Check for or install the latest Embrasure release.
+    /// Check for or install the latest Fortify release.
     Update {
         /// Report update availability without installing it.
         #[arg(long)]
@@ -261,7 +262,7 @@ enum CloudCommand {
 #[tokio::main]
 async fn main() -> ExitCode {
     let cli = Cli::parse();
-    let config = cli.config;
+    let config = compat::config_path(cli.config);
     match cli.command {
         Command::Init {
             force,
@@ -370,7 +371,7 @@ async fn main() -> ExitCode {
                     }
                 } else {
                     if !progress_active {
-                        eprintln!("embrasure: validating changes against {base}");
+                        eprintln!("fortify: validating changes against {base}");
                     }
                     match loaded_config {
                         Ok(config) => {
@@ -382,7 +383,7 @@ async fn main() -> ExitCode {
                 if let Some(snapshot) = &snapshot
                     && let Err(error) = cloud::save_review(snapshot, &report)
                 {
-                    eprintln!("embrasure: could not save the local review cache: {error:#}");
+                    eprintln!("fortify: could not save the local review cache: {error:#}");
                 }
                 (intent, snapshot, report)
             };
@@ -390,7 +391,7 @@ async fn main() -> ExitCode {
             #[cfg(not(feature = "cloud-demo"))]
             let mut report = {
                 if !progress_active {
-                    eprintln!("embrasure: validating changes against {base}");
+                    eprintln!("fortify: validating changes against {base}");
                 }
                 match loaded_config {
                     Ok(config) => {
@@ -627,25 +628,25 @@ async fn main() -> ExitCode {
                 CompletionShell::Bash => clap_complete::generate(
                     clap_complete::shells::Bash,
                     &mut command,
-                    "embrasure",
+                    compat::command_name(),
                     &mut stdout,
                 ),
                 CompletionShell::Zsh => clap_complete::generate(
                     clap_complete::shells::Zsh,
                     &mut command,
-                    "embrasure",
+                    compat::command_name(),
                     &mut stdout,
                 ),
                 CompletionShell::Fish => clap_complete::generate(
                     clap_complete::shells::Fish,
                     &mut command,
-                    "embrasure",
+                    compat::command_name(),
                     &mut stdout,
                 ),
                 CompletionShell::Powershell => clap_complete::generate(
                     clap_complete::shells::PowerShell,
                     &mut command,
-                    "embrasure",
+                    compat::command_name(),
                     &mut stdout,
                 ),
             }
@@ -658,7 +659,7 @@ async fn main() -> ExitCode {
                         "Save this script in a directory listed by your Zsh fpath."
                     }
                     CompletionShell::Fish => {
-                        "Save this script as ~/.config/fish/completions/embrasure.fish."
+                        "Save this script as ~/.config/fish/completions/fortify.fish."
                     }
                     CompletionShell::Powershell => {
                         "Save this script and source it from your PowerShell profile."
@@ -715,6 +716,6 @@ fn cloud_result_json(
 
 fn fail(error: impl std::fmt::Display) -> ExitCode {
     let style = style::Style::stderr();
-    eprintln!("{}: {error:#}", style.bad("embrasure"));
+    eprintln!("{}: {error:#}", style.bad("fortify"));
     ExitCode::from(report::EXIT_EXECUTION)
 }

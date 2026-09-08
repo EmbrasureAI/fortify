@@ -749,7 +749,7 @@ impl Report {
     }
 
     pub fn markdown(&self) -> String {
-        let mut output = String::from("# Embrasure check report\n\n");
+        let mut output = String::from("# Fortify check report\n\n");
         let _ = writeln!(output, "**Status:** `{:?}`  ", self.status);
         let _ = writeln!(output, "**Base:** `{}`  ", self.base);
         let _ = writeln!(output, "**Exit code:** `{}`\n", self.exit_code);

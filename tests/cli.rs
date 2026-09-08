@@ -3,8 +3,107 @@ use predicates::prelude::*;
 use std::fs;
 
 #[test]
+fn both_command_names_keep_their_version_and_completion_identity() {
+    for name in ["fortify", "embrasure"] {
+        Command::cargo_bin(name)
+            .unwrap()
+            .arg("--version")
+            .assert()
+            .success()
+            .stdout(format!("{name} {}\n", env!("CARGO_PKG_VERSION")));
+        Command::cargo_bin(name)
+            .unwrap()
+            .args(["completions", "bash"])
+            .assert()
+            .success()
+            .stdout(predicate::str::contains(format!("_{name}()")));
+    }
+}
+
+#[test]
+fn configuration_precedence_is_shared_and_does_not_hide_invalid_files() {
+    let directory = tempfile::tempdir().unwrap();
+    fs::write(
+        directory.path().join("embrasure-check.yml"),
+        "invalid: legacy\n",
+    )
+    .unwrap();
+    for name in ["fortify", "embrasure"] {
+        Command::cargo_bin(name)
+            .unwrap()
+            .current_dir(directory.path())
+            .args(["auth", "status", "--json"])
+            .assert()
+            .code(3)
+            .stderr(predicate::str::contains(
+                "invalid config embrasure-check.yml",
+            ));
+    }
+    fs::write(
+        directory.path().join("fortify-check.yml"),
+        "invalid: canonical\n",
+    )
+    .unwrap();
+    for name in ["fortify", "embrasure"] {
+        Command::cargo_bin(name)
+            .unwrap()
+            .current_dir(directory.path())
+            .args(["auth", "status", "--json"])
+            .assert()
+            .code(3)
+            .stderr(predicate::str::contains("invalid config fortify-check.yml"));
+        Command::cargo_bin(name)
+            .unwrap()
+            .current_dir(directory.path())
+            .args([
+                "auth",
+                "status",
+                "--json",
+                "--config",
+                "embrasure-check.yml",
+            ])
+            .assert()
+            .code(3)
+            .stderr(predicate::str::contains(
+                "invalid config embrasure-check.yml",
+            ));
+        Command::cargo_bin(name)
+            .unwrap()
+            .current_dir(directory.path())
+            .args(["--config", "missing.yml", "auth", "status", "--json"])
+            .assert()
+            .code(3)
+            .stderr(predicate::str::contains(
+                "could not read config missing.yml",
+            ));
+    }
+}
+
+#[test]
+fn init_preserves_legacy_configuration_without_creating_a_second_file() {
+    let directory = tempfile::tempdir().unwrap();
+    fs::write(
+        directory.path().join("dbt_project.yml"),
+        "name: analytics\n",
+    )
+    .unwrap();
+    fs::write(directory.path().join("embrasure-check.yml"), "keep me\n").unwrap();
+    Command::cargo_bin("fortify")
+        .unwrap()
+        .current_dir(directory.path())
+        .arg("init")
+        .assert()
+        .code(3);
+    assert_eq!(
+        fs::read_to_string(directory.path().join("embrasure-check.yml")).unwrap(),
+        "keep me\n"
+    );
+    assert!(!directory.path().join("fortify-check.yml").exists());
+}
+
+#[test]
 fn help_exposes_enterprise_setup_commands() {
-    Command::cargo_bin("embrasure")
+    Command::cargo_bin("fortify")
         .unwrap()
         .arg("--help")
         .assert()
@@ -24,7 +123,7 @@ fn init_creates_a_minimal_valid_config() {
     )
     .unwrap();
 
-    Command::cargo_bin("embrasure")
+    Command::cargo_bin("fortify")
         .unwrap()
         .current_dir(directory.path())
         .args([
@@ -45,15 +144,15 @@ fn init_creates_a_minimal_valid_config() {
         .write_stdin("\n")
         .assert()
         .success()
-        .stdout(predicate::str::contains("Created embrasure-check.yml"));
+        .stdout(predicate::str::contains("Created fortify-check.yml"));
 
-    let config = fs::read_to_string(directory.path().join("embrasure-check.yml")).unwrap();
+    let config = fs::read_to_string(directory.path().join("fortify-check.yml")).unwrap();
     assert!(config.contains("profile: analytics"));
     assert!(config.contains("account: my_org-my_account"));
     assert!(config.contains("type: oauth_local"));
     assert!(!config.contains("thresholds:"));
 
-    Command::cargo_bin("embrasure")
+    Command::cargo_bin("fortify")
         .unwrap()
         .current_dir(directory.path())
         .args(["auth", "status", "--json"])
@@ -70,9 +169,9 @@ fn init_does_not_replace_an_existing_config() {
         "name: analytics\n",
     )
     .unwrap();
-    fs::write(directory.path().join("embrasure-check.yml"), "keep me\n").unwrap();
+    fs::write(directory.path().join("fortify-check.yml"), "keep me\n").unwrap();
 
-    Command::cargo_bin("embrasure")
+    Command::cargo_bin("fortify")
         .unwrap()
         .current_dir(directory.path())
         .arg("init")
@@ -81,7 +180,7 @@ fn init_does_not_replace_an_existing_config() {
         .stderr(predicate::str::contains("already exists"));
 
     assert_eq!(
-        fs::read_to_string(directory.path().join("embrasure-check.yml")).unwrap(),
+        fs::read_to_string(directory.path().join("fortify-check.yml")).unwrap(),
         "keep me\n"
     );
 }
@@ -113,7 +212,7 @@ fn init_reuses_values_from_the_active_dbt_profile() {
     )
     .unwrap();
 
-    Command::cargo_bin("embrasure")
+    Command::cargo_bin("fortify")
         .unwrap()
         .current_dir(directory.path())
         .env("DBT_PROFILES_DIR", &profiles_directory)
@@ -125,7 +224,7 @@ fn init_reuses_values_from_the_active_dbt_profile() {
         .stdout(predicate::str::contains("Production schema [PROD]"))
         .stdout(predicate::str::contains("Snowflake account identifier").not());
 
-    let config = fs::read_to_string(directory.path().join("embrasure-check.yml")).unwrap();
+    let config = fs::read_to_string(directory.path().join("fortify-check.yml")).unwrap();
     assert!(config.contains("profile: analytics"));
     assert!(config.contains("account: my_org-my_account"));
     assert!(config.contains("user: DBT_CI"));
@@ -158,7 +257,7 @@ fn init_generates_a_typed_bigquery_config() {
     )
     .unwrap();
 
-    Command::cargo_bin("embrasure")
+    Command::cargo_bin("fortify")
         .unwrap()
         .current_dir(directory.path())
         .env("DBT_PROFILES_DIR", &profiles_directory)
@@ -169,7 +268,7 @@ fn init_generates_a_typed_bigquery_config() {
         .stdout(predicate::str::contains("Production dataset [prod]"))
         .stdout(predicate::str::contains("BigQuery project").not());
 
-    let config = fs::read_to_string(directory.path().join("embrasure-check.yml")).unwrap();
+    let config = fs::read_to_string(directory.path().join("fortify-check.yml")).unwrap();
     assert!(config.contains("version: 2"));
     assert!(config.contains("type: bigquery"));
     assert!(config.contains("project: analytics-prod"));
@@ -181,7 +280,7 @@ fn init_generates_a_typed_bigquery_config() {
 
 #[test]
 fn doctor_returns_execution_failure_for_a_missing_config() {
-    Command::cargo_bin("embrasure")
+    Command::cargo_bin("fortify")
         .unwrap()
         .args(["doctor", "--config", "definitely-missing.yml", "--json"])
         .assert()
@@ -194,7 +293,7 @@ fn doctor_returns_execution_failure_for_a_missing_config() {
 fn missing_dbt_check_preserves_json_and_exit_code() {
     let directory = tempfile::tempdir().unwrap();
     fs::write(
-        directory.path().join("embrasure-check.yml"),
+        directory.path().join("fortify-check.yml"),
         r#"version: 1
 dbt:
   project_dir: .
@@ -213,7 +312,7 @@ accounts:
     )
     .unwrap();
 
-    let assertion = Command::cargo_bin("embrasure")
+    let assertion = Command::cargo_bin("fortify")
         .unwrap()
         .current_dir(directory.path())
         .env("SHELL", "/bin/zsh")
@@ -243,7 +342,7 @@ accounts:
 
 #[test]
 fn run_remains_an_alias_for_check() {
-    Command::cargo_bin("embrasure")
+    Command::cargo_bin("fortify")
         .unwrap()
         .args(["run", "--help"])
         .assert()
@@ -255,7 +354,7 @@ fn run_remains_an_alias_for_check() {
 
 #[test]
 fn check_exposes_quick_and_deep_modes() {
-    Command::cargo_bin("embrasure")
+    Command::cargo_bin("fortify")
         .unwrap()
         .args(["check", "--help"])
         .assert()
@@ -267,7 +366,7 @@ fn check_exposes_quick_and_deep_modes() {
 
 #[test]
 fn check_exposes_scope_incremental_and_report_controls() {
-    Command::cargo_bin("embrasure")
+    Command::cargo_bin("fortify")
         .unwrap()
         .args(["check", "--help"])
         .assert()
@@ -286,7 +385,7 @@ fn check_exposes_scope_incremental_and_report_controls() {
 
 #[test]
 fn legacy_report_version_requires_json_output() {
-    Command::cargo_bin("embrasure")
+    Command::cargo_bin("fortify")
         .unwrap()
         .args(["check", "--report-version", "1"])
         .assert()
@@ -297,7 +396,7 @@ fn legacy_report_version_requires_json_output() {
 #[test]
 #[cfg(feature = "cloud-demo")]
 fn check_exposes_explicit_cloud_handoff_controls() {
-    Command::cargo_bin("embrasure")
+    Command::cargo_bin("fortify")
         .unwrap()
         .args(["check", "--help"])
         .assert()
@@ -310,7 +409,7 @@ fn check_exposes_explicit_cloud_handoff_controls() {
 #[test]
 #[cfg(feature = "cloud-demo")]
 fn cloud_context_cannot_accidentally_enable_network_handoff() {
-    Command::cargo_bin("embrasure")
+    Command::cargo_bin("fortify")
         .unwrap()
         .args(["check", "--context", "one row per order"])
         .assert()
@@ -321,7 +420,7 @@ fn cloud_context_cannot_accidentally_enable_network_handoff() {
 #[test]
 #[cfg(feature = "cloud-demo")]
 fn cloud_subcommands_are_discoverable() {
-    Command::cargo_bin("embrasure")
+    Command::cargo_bin("fortify")
         .unwrap()
         .args(["cloud", "--help"])
         .assert()
@@ -334,13 +433,13 @@ fn cloud_subcommands_are_discoverable() {
 
 #[test]
 fn global_config_works_before_and_after_subcommands() {
-    Command::cargo_bin("embrasure")
+    Command::cargo_bin("fortify")
         .unwrap()
         .args(["--config", "missing-a.yml", "doctor", "--json"])
         .assert()
         .code(3)
         .stdout(predicate::str::contains("missing-a.yml"));
-    Command::cargo_bin("embrasure")
+    Command::cargo_bin("fortify")
         .unwrap()
         .args(["doctor", "--config", "missing-b.yml", "--json"])
         .assert()
@@ -351,20 +450,20 @@ fn global_config_works_before_and_after_subcommands() {
 #[test]
 #[cfg(not(feature = "cloud-demo"))]
 fn default_release_has_no_cloud_surface() {
-    Command::cargo_bin("embrasure")
+    Command::cargo_bin("fortify")
         .unwrap()
         .arg("--help")
         .assert()
         .success()
         .stdout(predicate::str::contains("cloud").not());
-    Command::cargo_bin("embrasure")
+    Command::cargo_bin("fortify")
         .unwrap()
         .args(["check", "--help"])
         .assert()
         .success()
         .stdout(predicate::str::contains("--cloud").not())
         .stdout(predicate::str::contains("--context").not());
-    Command::cargo_bin("embrasure")
+    Command::cargo_bin("fortify")
         .unwrap()
         .arg("cloud")
         .assert()
@@ -375,14 +474,14 @@ fn default_release_has_no_cloud_surface() {
 #[test]
 fn completions_support_only_documented_shells() {
     for shell in ["bash", "zsh", "fish", "powershell"] {
-        Command::cargo_bin("embrasure")
+        Command::cargo_bin("fortify")
             .unwrap()
             .args(["completion", shell])
             .assert()
             .success()
             .stdout(predicate::str::is_empty().not());
     }
-    Command::cargo_bin("embrasure")
+    Command::cargo_bin("fortify")
         .unwrap()
         .args(["completion", "cmd"])
         .assert()
@@ -391,7 +490,7 @@ fn completions_support_only_documented_shells() {
 
 #[test]
 fn json_output_is_ansi_free() {
-    Command::cargo_bin("embrasure")
+    Command::cargo_bin("fortify")
         .unwrap()
         .args(["check", "--json", "--config", "missing.yml"])
         .assert()
@@ -402,7 +501,7 @@ fn json_output_is_ansi_free() {
 #[test]
 #[cfg(feature = "cloud-demo")]
 fn dry_run_conflicts_with_cloud() {
-    Command::cargo_bin("embrasure")
+    Command::cargo_bin("fortify")
         .unwrap()
         .args(["check", "--dry-run", "--cloud"])
         .assert()

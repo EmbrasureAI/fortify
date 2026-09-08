@@ -84,11 +84,11 @@ pub fn run(config_path: &Path, force: bool, options: Options) -> Result<()> {
 
     let project_file = Path::new("dbt_project.yml");
     if !project_file.is_file() {
-        bail!("dbt_project.yml was not found; run `embrasure init` from your dbt project root");
+        bail!("dbt_project.yml was not found; run `fortify init` from your dbt project root");
     }
 
     let defaults = discover_defaults(project_file);
-    println!("Set up Embrasure for this dbt project.\n");
+    println!("Set up Fortify for this dbt project.\n");
 
     let provider = options
         .provider
@@ -149,7 +149,7 @@ pub fn run(config_path: &Path, force: bool, options: Options) -> Result<()> {
         .with_context(|| format!("could not write {}", config_path.display()))?;
 
     println!(
-        "\nCreated {}.\n\nNext:\n  embrasure auth login\n  embrasure doctor\n  embrasure check",
+        "\nCreated {}.\n\nNext:\n  fortify auth login\n  fortify doctor\n  fortify check",
         config_path.display()
     );
     Ok(())
@@ -189,7 +189,7 @@ fn run_bigquery(config_path: &Path, options: Options, defaults: Options) -> Resu
     fs::write(config_path, yaml)
         .with_context(|| format!("could not write {}", config_path.display()))?;
     println!(
-        "\nCreated {}.\n\nEnsure Google Application Default Credentials are available, then run:\n  embrasure doctor\n  embrasure check",
+        "\nCreated {}.\n\nEnsure Google Application Default Credentials are available, then run:\n  fortify doctor\n  fortify check",
         config_path.display()
     );
     Ok(())
@@ -222,7 +222,7 @@ fn required(label: &str, default: Option<String>) -> Result<String> {
         return Ok(value);
     }
     if bytes == 0 {
-        bail!("{label} is required; rerun `embrasure init` in an interactive terminal");
+        bail!("{label} is required; rerun `fortify init` in an interactive terminal");
     }
     bail!("{label} is required");
 }

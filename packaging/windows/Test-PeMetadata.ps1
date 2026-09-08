@@ -13,12 +13,12 @@ Set-StrictMode -Version 3.0
 $ErrorActionPreference = 'Stop'
 $metadata = (Get-Item -LiteralPath $BinaryPath).VersionInfo
 $expected = @{
-    ProductName = 'Embrasure'
+    ProductName = 'Fortify'
     ProductVersion = $Version
     FileVersion = $Version
     CompanyName = 'Embrasure, Inc.'
     FileDescription = 'Validate dbt changes against production warehouse data'
-    OriginalFilename = 'embrasure.exe'
+    OriginalFilename = 'fortify.exe'
     LegalCopyright = 'Copyright 2026 Embrasure, Inc.'
 }
 foreach ($field in $expected.Keys) {
