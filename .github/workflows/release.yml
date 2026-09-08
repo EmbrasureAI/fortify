@@ -15,9 +15,6 @@ on:
     tags:
       - "v*.*.*"
 
-env:
-  RELEASE_TAG: v0.6.0
-
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
@@ -27,6 +24,8 @@ permissions:
 
 jobs:
   verify:
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
     runs-on: ubuntu-24.04
     steps:
       - name: Check out source
@@ -34,12 +33,13 @@ jobs:
         with:
           persist-credentials: false
       - name: Verify tag matches Cargo version
+        id: version
         shell: bash
         run: |
           version="$(sed -n 's/^version = "\([^"]*\)"/\1/p' Cargo.toml | head -1)"
-          test "v${version}" = "${RELEASE_TAG}"
+          echo "tag=v${version}" >> "${GITHUB_OUTPUT}"
           if [[ "${GITHUB_REF_TYPE}" == tag ]]; then
-            test "${GITHUB_REF_NAME}" = "${RELEASE_TAG}"
+            test "${GITHUB_REF_NAME}" = "v${version}"
           fi
       - name: Install Rust
         run: |
@@ -55,6 +55,8 @@ jobs:
 
   build:
     needs: verify
+    env:
+      RELEASE_TAG: ${{ needs.verify.outputs.tag }}
     strategy:
       fail-fast: false
       matrix:
@@ -83,7 +85,7 @@ jobs:
           rustup default stable
           rustup target add "${{ matrix.target }}"
       - name: Build release binary
-        run: cargo build --release --locked --target "${{ matrix.target }}"
+        run: cargo build --release --locked --bin fortify --target "${{ matrix.target }}"
       - name: Package release binary
         shell: bash
         run: |
@@ -133,6 +135,8 @@ jobs:
 
   build-windows:
     needs: verify
+    env:
+      RELEASE_TAG: ${{ needs.verify.outputs.tag }}
     runs-on: windows-2022
     steps:
       - name: Check out source
@@ -148,6 +152,8 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.12"
+      - name: Install pinned SQLGlot
+        run: python -m pip install --require-hashes -r packaging/sqlglot-requirements.txt
       - name: Install Rust
         shell: pwsh
         run: |
@@ -157,9 +163,13 @@ jobs:
       - name: Build Windows release binary
         run: |
           cargo clippy --locked --target x86_64-pc-windows-msvc --all-targets --all-features -- -D warnings
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cargo test --locked --target x86_64-pc-windows-msvc
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cargo test --locked --all-features --target x86_64-pc-windows-msvc
-          cargo build --release --locked --target x86_64-pc-windows-msvc
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo build --release --locked --bin fortify --target x86_64-pc-windows-msvc
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Verify Windows executable metadata
         shell: pwsh
         run: |
@@ -202,7 +212,9 @@ jobs:
           if-no-files-found: error
 
   package:
-    needs: [build, build-windows]
+    needs: [verify, build, build-windows]
+    env:
+      RELEASE_TAG: ${{ needs.verify.outputs.tag }}
     runs-on: ubuntu-24.04
     permissions:
       actions: read
@@ -311,7 +323,9 @@ jobs:
           git push origin refs/tags/v1 --force
 
   tap:
-    needs: publish
+    needs: [verify, publish]
+    env:
+      RELEASE_TAG: ${{ needs.verify.outputs.tag }}
     runs-on: ubuntu-24.04
     steps:
       - name: Check out source

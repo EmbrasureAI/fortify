@@ -75,9 +75,13 @@ jobs:
       - name: Test Windows runtime
         run: |
           cargo clippy --locked --target x86_64-pc-windows-msvc --all-targets --all-features -- -D warnings
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cargo test --locked --target x86_64-pc-windows-msvc
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cargo test --locked --all-features --target x86_64-pc-windows-msvc
-          cargo build --release --locked --target x86_64-pc-windows-msvc
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo build --release --locked --bin fortify --target x86_64-pc-windows-msvc
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Verify Windows executable metadata
         shell: pwsh
         run: |
