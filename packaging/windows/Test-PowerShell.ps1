@@ -62,6 +62,34 @@ try {
     Set-Content -LiteralPath (Join-Path $owned '.fortify-install') -Value 'EmbrasureAI.Fortify' -Encoding ASCII
     if (-not (Test-OwnedInstallDirectory -Path $owned)) { throw 'Fortify ownership was rejected.' }
 
+    $manifests = Join-Path $testRoot 'manifests'
+    & (Join-Path $PSScriptRoot 'New-PackageManifests.ps1') `
+        -Version '0.6.0' -ArchiveSha256 ('a' * 64) -OutputDirectory $manifests
+    $scoopdir = Join-Path $testRoot 'scoop'
+    $globaldir = Join-Path $testRoot 'scoop-global'
+    foreach ($package in @('fortify', 'embrasure')) {
+        $other = if ($package -eq 'fortify') { 'embrasure' } else { 'fortify' }
+        $manifest = Get-Content -LiteralPath (Join-Path $manifests "scoop\${package}.json") -Raw | ConvertFrom-Json
+        if ($manifest.bin.Count -ne 2 -or $manifest.extract_dir -ne 'fortify-0.6.0-x86_64-pc-windows-msvc') {
+            throw "Invalid ${package} package aliases or archive layout."
+        }
+        Invoke-Expression $manifest.pre_install
+        foreach ($base in @($scoopdir, $globaldir)) {
+            $conflict = Join-Path $base "apps\${other}\current"
+            New-Item -ItemType Directory -Path $conflict -Force | Out-Null
+            try {
+                Invoke-Expression $manifest.pre_install
+                throw 'Scoop accepted conflicting package ownership.'
+            }
+            catch {
+                if ($_.Exception.Message -eq 'Scoop accepted conflicting package ownership.') { throw }
+            }
+            finally {
+                Remove-Item -LiteralPath $conflict -Recurse -Force
+            }
+        }
+    }
+
     $checksumFile = Join-Path $testRoot 'SHA256SUMS'
     $validHash = 'a' * 64
     Set-Content -LiteralPath $checksumFile -Value "${validHash}  artifact.zip" -Encoding ASCII

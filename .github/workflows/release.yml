@@ -92,7 +92,7 @@ jobs:
           mkdir -p "dist/${package}"
           cp "target/${{ matrix.target }}/release/fortify" "dist/${package}/fortify"
           cp "dist/${package}/fortify" "dist/${package}/embrasure"
-          cp LICENSE NOTICE README.md SECURITY.md fortify-check.example.yml "dist/${package}/"
+          cp LICENSE NOTICE README.md SECURITY.md fortify-check.example.yml embrasure-check.example.yml "dist/${package}/"
           cp -R docs "dist/${package}/docs"
           mkdir -p "dist/${package}/python"
           python3 -m pip download \

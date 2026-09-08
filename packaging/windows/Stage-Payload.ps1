@@ -26,7 +26,7 @@ New-Item -ItemType Directory -Path $binDirectory, $pythonDirectory, $docsDirecto
 Copy-Item -LiteralPath $BinaryPath -Destination (Join-Path $binDirectory 'fortify.exe')
 Copy-Item -LiteralPath $BinaryPath -Destination (Join-Path $binDirectory 'embrasure.exe')
 
-$documents = @('LICENSE', 'NOTICE', 'README.md', 'SECURITY.md', 'fortify-check.example.yml')
+$documents = @('LICENSE', 'NOTICE', 'README.md', 'SECURITY.md', 'fortify-check.example.yml', 'embrasure-check.example.yml')
 foreach ($document in $documents) {
     Copy-Item -LiteralPath (Join-Path $repositoryRoot $document) -Destination $docsDirectory
 }
