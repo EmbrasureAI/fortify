@@ -1,18 +1,44 @@
-# Fortify
-
 <p align="center">
-  <a href="https://github.com/EmbrasureAI/fortify/actions/workflows/github-code-scanning/codeql"><img src="https://github.com/EmbrasureAI/fortify/actions/workflows/github-code-scanning/codeql/badge.svg" alt="CodeQL"></a>
+  <a href="https://embrasure.ai">
+    <img src="docs/assets/embrasure-banner.svg" alt="Embrasure" width="100%">
+  </a>
 </p>
 
-<p align="center"><strong>Catch unexpected data changes before a dbt PR is reviewed.</strong></p>
+<h1 align="center">Fortify</h1>
 
-Fortify is open-source, local dbt PR validation for Snowflake, Databricks, and BigQuery:
+<p align="center">
+  Catch unexpected data changes before a dbt PR is reviewed.
+</p>
 
-- Builds changed models and critical downstream paths in temporary schemas, then cleans them up.
-- Runs dbt tests and compares schema, row counts, null rates, cardinality, ranges, and primary keys with production.
-- Shows affected downstream models and columns.
-- Connects directly to your warehouse, with no Embrasure account or data sent to Embrasure.
-- Includes a [`verify`](.agents/skills/verify/SKILL.md) skill that runs the agent check-and-fix loop.
+<p align="center">
+  <a href="https://github.com/EmbrasureAI/embrasure-cli/actions/workflows/ci.yml"><img src="https://github.com/EmbrasureAI/embrasure-cli/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"></a>
+  <a href="https://github.com/EmbrasureAI/embrasure-cli/actions/workflows/github-code-scanning/codeql"><img src="https://github.com/EmbrasureAI/embrasure-cli/actions/workflows/github-code-scanning/codeql/badge.svg" alt="CodeQL"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-2C2721" alt="License: Apache-2.0"></a>
+</p>
+
+<p align="center">
+  <a href="#documentation">Documentation</a> ·
+  <a href="#snowflake-quickstart">Quickstart</a> ·
+  <a href="#github-actions">GitHub Actions</a> ·
+  <a href="CONTRIBUTING.md">Contributing</a> ·
+  <a href="https://github.com/EmbrasureAI/embrasure-cli/issues">Issues</a>
+</p>
+
+Fortify validates dbt pull requests locally against Snowflake, Databricks, and
+BigQuery. It builds changed models in temporary schemas, compares them with
+production, and reports what needs a fix before review. Written in Rust.
+
+## Highlights
+
+- **Validate before review.** Build changed models and critical downstream paths
+  in temporary schemas, then clean them up.
+- **Compare with production.** Run dbt tests and compare schema, row counts,
+  null rates, cardinality, ranges, and primary keys.
+- **See downstream impact.** Show affected models and columns.
+- **Connect directly.** Use your warehouse credentials, with no Embrasure account
+  or data sent to Embrasure.
+- **Check and fix with your agent.** Use the [`verify`](.agents/skills/verify/SKILL.md)
+  skill to run the check-and-fix loop.
 
 `fortify auth login` uses Snowflake OAuth. Databricks uses a token supplied through the configured environment variable. BigQuery uses Google Application Default Credentials. The warehouse identity needs production read access and permission to create and remove temporary schemas or datasets.
 
@@ -134,7 +160,9 @@ accounts:
 
 Application Default Credentials also support `GOOGLE_APPLICATION_CREDENTIALS` and an attached Google Cloud service account. `maximum_bytes_billed` applies the same per-query cap to dbt builds and Fortify comparison queries. Incremental baselines use BigQuery table clones; clone mode seeds candidates with table copies. The source and temporary datasets must be in the same location, and table-clone restrictions still apply.
 
-If you do not use Homebrew, use the installer:
+## Installation options
+
+If you do not use Homebrew, use the installer on macOS or Linux:
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/EmbrasureAI/fortify/main/install.sh | sh
@@ -190,7 +218,7 @@ Continue only when `fortify doctor` reports `READY`. Fortify generates a tempora
 
 If dbt is installed in `.venv`, run `source .venv/bin/activate` in each new shell before using Fortify.
 
-Example result:
+## Example result
 
 ```text
 ✓ Safe to continue
@@ -387,6 +415,18 @@ Every temporary schema has a unique name and ownership marker. Query results are
 - Dashboard column lineage is not inferred from model lineage.
 - Metabase matching covers native SQL cards that reference fully qualified production relations. Unsupported or inaccessible metadata becomes a coverage gap.
 
+## Documentation
+
+| Guide | What you will find |
+| --- | --- |
+| [Snowflake quickstart](#snowflake-quickstart) | Install, authenticate, preview, and run your first check |
+| [Databricks](#databricks) and [BigQuery](#bigquery) | Provider setup, authentication, and baseline requirements |
+| [Example configuration](fortify-check.example.yml) | Accounts, model policies, checks, and thresholds |
+| [Enterprise setup](docs/enterprise.md) | Service credentials, multiple accounts, grants, and integrations |
+| [Reports and exit codes](#reports-and-exit-codes) | JSON contracts, coverage gaps, and the agent loop |
+| [Security and data flow](docs/security-and-data-flow.md) | Network connections, credentials, cleanup, and release verification |
+| [Upgrading from Embrasure](#upgrading-from-embrasure) | Command, configuration, and package migration |
+
 ## Development
 
 Rust 1.88 or newer is required when building from source.
@@ -399,4 +439,14 @@ cargo test --locked
 
 The opt-in Snowflake suite uses `FORTIFY_RUN_SNOWFLAKE_TESTS=1` and the `FORTIFY_TEST_SNOWFLAKE_*` account, user, role, database, warehouse, and token variables. It covers exact keyed passes and changes, duplicate-only unkeyed differences, incremental cloning, cleanup, and 100,000 synthetic rows.
 
-Contributions are welcome under the [Apache 2.0 license](LICENSE).
+## Contributing
+
+Bug reports, documentation improvements, and code contributions are welcome.
+Read [Contributing](CONTRIBUTING.md) for development and review expectations.
+Open an [issue](https://github.com/EmbrasureAI/embrasure-cli/issues) to report a bug
+or discuss a substantial change.
+
+## License
+
+Fortify is licensed under [Apache-2.0](LICENSE). See [NOTICE](NOTICE) for
+attribution.
