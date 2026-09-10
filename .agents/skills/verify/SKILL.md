@@ -1,6 +1,6 @@
 ---
 name: verify
-description: Run Embrasure's local verification loop for dbt changes. Use when implementing, debugging, or reviewing dbt models, tests, macros, seeds, snapshots, or SQL. Check against the PR base, fix every finding or gap, and rerun until clean.
+description: Run Fortify's local verification loop for dbt changes. Use when implementing, debugging, or reviewing dbt models, tests, macros, seeds, snapshots, or SQL. Check against the PR base, fix every finding or gap, and rerun until clean.
 ---
 
 # Verify
@@ -13,17 +13,17 @@ Run from the dbt project root after making changes.
 2. Run:
 
    ```sh
-   embrasure check --base origin/main --json
+   fortify check --base origin/main --json
    ```
 
 3. Handle the exit code:
    - `0`: stop; the check passed.
    - `1`: fix every finding and rerun.
    - `2`: resolve or explain every coverage gap. Do not call this a pass.
-   - `3`: fix the setup, execution, or cleanup error. Run `embrasure doctor` for configuration or access problems.
+   - `3`: fix the setup, execution, or cleanup error. Run `fortify doctor` for configuration or access problems.
 4. Repeat until the full check exits `0`.
 
-Use `--select <model> --downstream none` or `--mode quick` during iteration. Finish without those flags so Embrasure validates the complete downstream path. A dry run is only a preview.
+Use `--select <model> --downstream none` or `--mode quick` during iteration. Finish without those flags so Fortify validates the complete downstream path. A dry run is only a preview.
 
 ## Guardrails
 
@@ -34,4 +34,4 @@ Use `--select <model> --downstream none` or `--mode quick` during iteration. Fin
 
 ## Report
 
-Report the base, fixes, models validated, downstream impact, and remaining gaps. Use the final Embrasure result as evidence.
+Report the base, fixes, models validated, downstream impact, and remaining gaps. Use the final Fortify result as evidence.

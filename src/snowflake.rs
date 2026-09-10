@@ -1,5 +1,5 @@
 use std::{
-    env, fs,
+    fs,
     sync::{Arc, Mutex},
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
@@ -331,7 +331,7 @@ impl SnowflakeClient {
         );
         headers.insert(
             header::USER_AGENT,
-            header::HeaderValue::from_static(concat!("embrasure/", env!("CARGO_PKG_VERSION"))),
+            header::HeaderValue::from_static(concat!("fortify/", env!("CARGO_PKG_VERSION"))),
         );
         headers.insert(
             "X-Snowflake-Authorization-Token-Type",
@@ -578,7 +578,7 @@ fn privilege_hint(
     } else {
         return None;
     };
-    Some(format!("{hint}; run `embrasure doctor`"))
+    Some(format!("{hint}; run `fortify doctor`"))
 }
 
 #[cfg(test)]
@@ -769,11 +769,11 @@ mod tests {
 
     #[tokio::test]
     async fn snowflake_incremental_strategies_and_scale() {
-        if env::var("EMBRASURE_RUN_SNOWFLAKE_TESTS").as_deref() != Ok("1") {
+        if crate::compat::var("EMBRASURE_RUN_SNOWFLAKE_TESTS").as_deref() != Ok("1") {
             return;
         }
         let required = |name: &str| {
-            env::var(name).unwrap_or_else(|_| {
+            crate::compat::var(name).unwrap_or_else(|_| {
                 panic!("{name} is required when EMBRASURE_RUN_SNOWFLAKE_TESTS=1")
             })
         };

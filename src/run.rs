@@ -1719,7 +1719,7 @@ async fn cleanup_schemas(
         };
         let Some(client) = clients.get(account_index) else {
             report.execution_errors.push(format!(
-                "could not recover the warehouse connection needed to clean up {database}.{target_schema}; run `embrasure clean` or remove it manually"
+                "could not recover the warehouse connection needed to clean up {database}.{target_schema}; run `fortify clean` or remove it manually"
             ));
             completed += 1;
             if let Some(progress) = progress {
@@ -1737,7 +1737,7 @@ async fn cleanup_schemas(
                 }
             }
             Err(error) => report.execution_errors.push(format!(
-                "CI schema cleanup failed for {}.{}; run `embrasure clean` or remove it manually: {error:#}",
+                "CI schema cleanup failed for {}.{}; run `fortify clean` or remove it manually: {error:#}",
                 database, target_schema,
             )),
         }

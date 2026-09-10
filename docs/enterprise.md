@@ -1,6 +1,6 @@
 # Enterprise setup
 
-Each Snowflake account gets its own `accounts` entry, dbt selector, user, role, warehouse, and credential. Run `embrasure doctor` after setup to verify each account independently.
+Each Snowflake account gets its own `accounts` entry, dbt selector, user, role, warehouse, and credential. Run `fortify doctor` after setup to verify each account independently.
 
 ## 1. Grant a narrow validation role
 
@@ -21,7 +21,7 @@ GRANT SELECT ON ALL VIEWS IN SCHEMA ANALYTICS.PROD TO ROLE DBT_CHANGE_VALIDATOR;
 GRANT SELECT ON FUTURE VIEWS IN SCHEMA ANALYTICS.PROD TO ROLE DBT_CHANGE_VALIDATOR;
 ```
 
-`SELECT` on a source table plus ownership of the run-created target schema permits table cloning. `embrasure doctor` creates a temporary schema, clones one visible production table, and removes the schema. Use `embrasure doctor --read-only` when this write test is not allowed.
+`SELECT` on a source table plus ownership of the run-created target schema permits table cloning. `fortify doctor` creates a temporary schema, clones one visible production table, and removes the schema. Use `fortify doctor --read-only` when this write test is not allowed.
 
 Grant the role to each person or service user that runs the CLI. The role owns only its temporary schemas. If selected models live in other schemas or databases, add the corresponding `USAGE`, `SELECT`, and `CREATE SCHEMA` grants. Keep warehouse resource monitors, size, and auto-suspend under normal Snowflake administration.
 
@@ -37,8 +37,8 @@ auth:
 ```
 
 ```sh
-embrasure auth login --account primary
-embrasure doctor
+fortify auth login --account primary
+fortify doctor
 ```
 
 Snowflake's built-in `SNOWFLAKE$LOCAL_APPLICATION` integration uses Authorization Code with PKCE and a loopback callback. Account administrators retain their network policies and token lifetime controls.
@@ -128,8 +128,8 @@ metabase:
 ## 5. CI gate
 
 ```sh
-embrasure doctor --json
-embrasure check --base origin/main --json --markdown embrasure-check.md
+fortify doctor --json
+fortify check --base origin/main --json --markdown fortify-check.md
 ```
 
 Exit `0` is ready for review, `1` is a finding, `2` is missing evidence, and `3` is a setup or execution failure.
@@ -140,7 +140,7 @@ Report v4 is the default JSON contract and adds column lineage. V1 through v3 re
 
 ### Large projects
 
-Embrasure computes impact from the full changed set. By default, it validates changed models and paths to critical downstream targets. A target is critical when it has a configured tag, `critical: true`, or directly supports a dbt exposure.
+Fortify computes impact from the full changed set. By default, it validates changed models and paths to critical downstream targets. A target is critical when it has a configured tag, `critical: true`, or directly supports a dbt exposure.
 
 ```yaml
 validation:
@@ -151,14 +151,14 @@ validation:
 
 Override policy with `--downstream` and repeatable `--critical-tag`. Use repeatable `--select` to intersect the resulting validation set. Excluded models remain visible as not validated.
 
-If selection exceeds `safety.max_models`, Embrasure exits `2` before dbt model builds. It does not truncate the set. Ref-free and production-only query checks can still run because they need no candidate build. Independent comparisons run concurrently up to `comparison.concurrency`.
+If selection exceeds `safety.max_models`, Fortify exits `2` before dbt model builds. It does not truncate the set. Ref-free and production-only query checks can still run because they need no candidate build. Independent comparisons run concurrently up to `comparison.concurrency`.
 
 Query checks are activated when referenced models are impacted or when the check definition changed since the base revision. Checks removed from the configuration produce an explicit coverage gap. Each side is materialized once in a dedicated run-owned schema before exact keyed or bag-semantic comparison.
 
 Quick mode is the inexpensive first pass:
 
 ```sh
-embrasure check --mode quick
+fortify check --mode quick
 ```
 
 Quick mode estimates cardinality, ignores estimated changes below 2%, and skips percentiles. Deep mode uses exact cardinality and percentiles. Both check schema, row counts, null rates, ranges, averages, dbt tests, impact, and primary keys.
@@ -179,7 +179,7 @@ models:
       row_count_relative: 0.05
 ```
 
-An explicit `primary_key` takes precedence over a simple dbt `unique_key`. Embrasure infers identifier strings and lists, not SQL expressions. The default regression policy fails when CI introduces or worsens duplicate and null keys. Set `key_policy: strict` to require zero CI duplicate and null keys.
+An explicit `primary_key` takes precedence over a simple dbt `unique_key`. Fortify infers identifier strings and lists, not SQL expressions. The default regression policy fails when CI introduces or worsens duplicate and null keys. Set `key_policy: strict` to require zero CI duplicate and null keys.
 
 The filter applies to both relations. Use a stable boundary so both sides cover the same data. Snowflake enforces `safety.statement_timeout_seconds` on each statement.
 
@@ -194,7 +194,7 @@ The default `clone` mode tests the next incremental run without copying producti
 
 All baseline and candidate clones are created before dbt starts. Unsupported relations or permission failures stop the run. The report uses `incremental_clone` and notes that historical recomputation was not tested.
 
-Use `--incremental-mode full-refresh` to build candidates from scratch. Embrasure still creates a stable baseline clone, so production changes during the run cannot move the reference. A new incremental model receives a normal first build and a coverage gap because no production relation exists.
+Use `--incremental-mode full-refresh` to build candidates from scratch. Fortify still creates a stable baseline clone, so production changes during the run cannot move the reference. A new incremental model receives a normal first build and a coverage gap because no production relation exists.
 
 Table-level zero-copy clones preserve Snowflake micro-partitions. Views, hybrid tables, external tables, and other objects that do not support `CREATE TABLE ... CLONE` must use another validation path.
 

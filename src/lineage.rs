@@ -244,7 +244,7 @@ fn invoke_with(
 }
 
 fn python_commands() -> Vec<PythonCommand> {
-    python_commands_for(env::var_os("EMBRASURE_PYTHON"), cfg!(windows))
+    python_commands_for(crate::compat::var_os("EMBRASURE_PYTHON"), cfg!(windows))
 }
 
 fn python_commands_for(configured: Option<OsString>, windows: bool) -> Vec<PythonCommand> {
@@ -274,13 +274,13 @@ fn python_commands_for(configured: Option<OsString>, windows: bool) -> Vec<Pytho
 }
 
 fn bundled_sqlglot_path() -> Result<Option<PathBuf>> {
-    if let Some(path) = env::var_os("EMBRASURE_SQLGLOT_PATH") {
+    if let Some(path) = crate::compat::var_os("EMBRASURE_SQLGLOT_PATH") {
         let path = PathBuf::from(path);
         if let Some(path) = find_sqlglot(&path)? {
             return Ok(Some(path));
         }
         bail!(
-            "EMBRASURE_SQLGLOT_PATH does not contain a SQLGlot package: {}",
+            "FORTIFY_SQLGLOT_PATH (or legacy EMBRASURE_SQLGLOT_PATH) does not contain a SQLGlot package: {}",
             path.display()
         );
     }
@@ -296,8 +296,12 @@ fn bundled_sqlglot_path() -> Result<Option<PathBuf>> {
 }
 
 fn find_bundled_sqlglot(bin_dir: &Path) -> Result<Option<PathBuf>> {
-    let mut candidates = vec![bin_dir.join(".embrasure/python")];
+    let mut candidates = vec![
+        bin_dir.join(".fortify/python"),
+        bin_dir.join(".embrasure/python"),
+    ];
     if let Some(prefix) = bin_dir.parent() {
+        candidates.push(prefix.join("libexec/fortify/python"));
         candidates.push(prefix.join("libexec/embrasure/python"));
     }
     candidates.push(bin_dir.join("python"));
@@ -516,6 +520,8 @@ mod tests {
     fn bundled_sqlglot_finds_release_installer_and_homebrew_layouts() {
         for relative in [
             "bin/python",
+            "bin/.fortify/python",
+            "libexec/fortify/python",
             "bin/.embrasure/python",
             "libexec/embrasure/python",
         ] {

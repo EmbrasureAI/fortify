@@ -15,9 +15,8 @@ use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-const LATEST_RELEASE: &str =
-    "https://api.github.com/repos/EmbrasureAI/embrasure-cli/releases/latest";
-const RELEASE_DOWNLOADS: &str = "https://github.com/EmbrasureAI/embrasure-cli/releases/download";
+const LATEST_RELEASE: &str = "https://api.github.com/repos/EmbrasureAI/fortify/releases/latest";
+const RELEASE_DOWNLOADS: &str = "https://github.com/EmbrasureAI/fortify/releases/download";
 #[cfg(windows)]
 const WINDOWS_INSTALLER: &str = include_str!("../install.ps1");
 
@@ -35,7 +34,7 @@ struct UpdateCache {
 pub fn http_client() -> Result<Client> {
     Client::builder()
         .timeout(Duration::from_secs(30))
-        .user_agent(format!("embrasure/{}", env!("CARGO_PKG_VERSION")))
+        .user_agent(format!("fortify/{}", env!("CARGO_PKG_VERSION")))
         .build()
         .context("could not initialize the HTTP client")
 }
@@ -44,23 +43,24 @@ pub async fn run(check_only: bool) -> Result<String> {
     let latest = latest_version().await?;
     let current = env!("CARGO_PKG_VERSION");
     if !is_newer(&latest, current)? {
-        return Ok(format!("Embrasure {current} is up to date."));
+        return Ok(format!("Fortify {current} is up to date."));
     }
     if check_only {
         return Ok(format!(
-            "Embrasure {latest} is available; current version is {current}."
+            "Fortify {latest} is available; current version is {current}."
         ));
     }
     let executable = env::current_exe().context("could not locate the current executable")?;
     if installed_by_brew(&executable) {
+        let formula = brew_formula(&executable);
         let status = Command::new("brew")
-            .args(["upgrade", "embrasureai/tap/embrasure"])
+            .args(["upgrade", formula])
             .status()
-            .context("could not run Homebrew; run `brew upgrade embrasureai/tap/embrasure`")?;
+            .with_context(|| format!("could not run Homebrew; run `brew upgrade {formula}`"))?;
         if !status.success() {
-            bail!("Homebrew upgrade failed; run `brew upgrade embrasureai/tap/embrasure`");
+            bail!("Homebrew upgrade failed; run `brew upgrade {formula}`");
         }
-        return Ok(format!("Updated Embrasure to {latest} with Homebrew."));
+        return Ok(format!("Updated Fortify to {latest} with Homebrew."));
     }
     #[cfg(windows)]
     {
@@ -69,7 +69,7 @@ pub async fn run(check_only: bool) -> Result<String> {
     #[cfg(not(windows))]
     self_replace(&executable, &latest).await?;
     #[cfg(not(windows))]
-    Ok(format!("Updated Embrasure to {latest}."))
+    Ok(format!("Updated Fortify to {latest}."))
 }
 
 pub async fn doctor_notice() -> Option<String> {
@@ -87,7 +87,7 @@ pub async fn doctor_notice() -> Option<String> {
             .filter(|newer| *newer)
             .map(|_| {
                 format!(
-                    "Embrasure {} is available; run `embrasure update`.",
+                    "Fortify {} is available; run `fortify update`.",
                     cache.latest
                 )
             });
@@ -100,7 +100,7 @@ pub async fn doctor_notice() -> Option<String> {
     is_newer(&latest, env!("CARGO_PKG_VERSION"))
         .ok()
         .filter(|newer| *newer)
-        .map(|_| format!("Embrasure {latest} is available; run `embrasure update`."))
+        .map(|_| format!("Fortify {latest} is available; run `fortify update`."))
 }
 
 async fn latest_version() -> Result<String> {
@@ -124,7 +124,7 @@ async fn latest_version() -> Result<String> {
 #[cfg(not(windows))]
 async fn self_replace(executable: &Path, version: &str) -> Result<()> {
     let target = release_target()?;
-    let archive_name = format!("embrasure-{version}-{target}.tar.gz");
+    let archive_name = format!("fortify-{version}-{target}.tar.gz");
     let base = format!("{RELEASE_DOWNLOADS}/v{version}");
     let client = http_client()?;
     let archive = download(&client, &format!("{base}/{archive_name}")).await?;
@@ -146,10 +146,36 @@ async fn self_replace(executable: &Path, version: &str) -> Result<()> {
     }
     let downloaded = scratch
         .path()
-        .join(format!("embrasure-{version}-{target}"))
-        .join("embrasure");
+        .join(format!("fortify-{version}-{target}"))
+        .join("fortify");
+    replace_binaries(&downloaded, executable)
+}
+
+#[cfg(not(windows))]
+fn replace_binaries(downloaded: &Path, executable: &Path) -> Result<()> {
+    // Installers ship identical copies. Only update a sibling we can identify
+    // as the same executable; never overwrite an unrelated command.
+    let sibling =
+        executable.with_file_name(if executable.file_name().is_some_and(|n| n == "fortify") {
+            "embrasure"
+        } else {
+            "fortify"
+        });
+    let update_sibling = fs::read(&sibling)
+        .ok()
+        .zip(fs::read(executable).ok())
+        .is_some_and(|(left, right)| left == right);
+    replace_binary(downloaded, executable)?;
+    if update_sibling {
+        replace_binary(downloaded, &sibling)?;
+    }
+    Ok(())
+}
+
+#[cfg(not(windows))]
+fn replace_binary(downloaded: &Path, executable: &Path) -> Result<()> {
     let replacement = replacement_path(executable)?;
-    fs::copy(&downloaded, &replacement).with_context(|| {
+    fs::copy(downloaded, &replacement).with_context(|| {
         format!(
             "could not write next to {}; check directory permissions",
             executable.display()
@@ -173,12 +199,12 @@ async fn self_replace(executable: &Path, version: &str) -> Result<()> {
 async fn windows_install(executable: &Path, version: &str) -> Result<String> {
     if let Some((manager, command)) = windows_package_manager(executable) {
         return Ok(format!(
-            "Embrasure was installed with {manager}; update it with `{command}`."
+            "Fortify was installed with {manager}; update it with `{command}`."
         ));
     }
 
     let target = release_target()?;
-    let package_name = format!("embrasure-{version}-{target}.zip");
+    let package_name = format!("fortify-{version}-{target}.zip");
     let base = format!("{RELEASE_DOWNLOADS}/v{version}");
     let client = http_client()?;
     let package = download(&client, &format!("{base}/{package_name}")).await?;
@@ -187,7 +213,7 @@ async fn windows_install(executable: &Path, version: &str) -> Result<String> {
     let expected = hex(&Sha256::digest(&package));
 
     let scratch = tempfile::Builder::new()
-        .prefix("embrasure-update-")
+        .prefix("fortify-update-")
         .tempdir()
         .context("could not create update directory")?;
     let package_path = scratch.path().join(&package_name);
@@ -197,18 +223,18 @@ async fn windows_install(executable: &Path, version: &str) -> Result<String> {
 
     let bin_dir = executable
         .parent()
-        .context("could not resolve the Embrasure executable directory")?;
+        .context("could not resolve the Fortify executable directory")?;
     if !bin_dir
         .file_name()
         .is_some_and(|name| name.eq_ignore_ascii_case("bin"))
     {
         bail!(
-            "this portable Embrasure executable cannot update itself in place; update it with its package manager or install it with install.ps1"
+            "this portable Fortify executable cannot update itself in place; update it with its package manager or install it with install.ps1"
         );
     }
     let install_root = bin_dir
         .parent()
-        .context("could not resolve the Embrasure installation directory")?;
+        .context("could not resolve the Fortify installation directory")?;
     let system_root = env::var_os("SystemRoot").context("SystemRoot is unavailable")?;
     let powershell = PathBuf::from(system_root)
         .join("System32")
@@ -256,7 +282,7 @@ async fn windows_install(executable: &Path, version: &str) -> Result<String> {
         return Err(error).context("could not start the Windows update helper");
     }
     Ok(format!(
-        "Prepared the Embrasure {version} update. It will finish after this process exits; log: {}",
+        "Prepared the Fortify {version} update. It will finish after this process exits; log: {}",
         log_path.display()
     ))
 }
@@ -267,6 +293,12 @@ fn windows_package_manager(executable: &Path) -> Option<(&'static str, &'static 
         .to_string_lossy()
         .replace('/', "\\")
         .to_lowercase();
+    if path.contains("\\scoop\\apps\\fortify\\") {
+        return Some(("Scoop", "scoop update fortify"));
+    }
+    if path.contains("\\microsoft\\winget\\packages\\embrasureai.fortify_") {
+        return Some(("WinGet", "winget upgrade --id EmbrasureAI.Fortify --exact"));
+    }
     if path.contains("\\scoop\\apps\\embrasure\\") {
         return Some(("Scoop", "scoop update embrasure"));
     }
@@ -324,6 +356,14 @@ fn release_target() -> Result<&'static str> {
         ("linux", "aarch64") => Ok("aarch64-unknown-linux-gnu"),
         ("windows", "x86_64") => Ok("x86_64-pc-windows-msvc"),
         (os, arch) => bail!("updates are not available for {os}/{arch}"),
+    }
+}
+
+fn brew_formula(executable: &Path) -> &'static str {
+    if executable.to_string_lossy().contains("/Cellar/embrasure/") {
+        "embrasureai/tap/embrasure"
+    } else {
+        "embrasureai/tap/fortify"
     }
 }
 
@@ -431,6 +471,26 @@ mod tests {
         );
         assert!(verify_checksum("release.tar.gz", archive, b"bad  release.tar.gz\n").is_err());
         assert!(verify_checksum("other.tar.gz", archive, sums.as_bytes()).is_err());
+    }
+
+    #[cfg(not(windows))]
+    #[test]
+    fn updates_matching_aliases_but_preserves_unrelated_commands() {
+        let dir = tempfile::tempdir().unwrap();
+        let canonical = dir.path().join("fortify");
+        let legacy = dir.path().join("embrasure");
+        let download = dir.path().join("download");
+        fs::write(&download, b"new").unwrap();
+        fs::write(&canonical, b"old").unwrap();
+        fs::write(&legacy, b"old").unwrap();
+        replace_binaries(&download, &legacy).unwrap();
+        assert_eq!(fs::read(&canonical).unwrap(), b"new");
+        assert_eq!(fs::read(&legacy).unwrap(), b"new");
+        fs::write(&legacy, b"unrelated").unwrap();
+        fs::write(&download, b"newer").unwrap();
+        replace_binaries(&download, &canonical).unwrap();
+        assert_eq!(fs::read(&canonical).unwrap(), b"newer");
+        assert_eq!(fs::read(&legacy).unwrap(), b"unrelated");
     }
 
     #[cfg(windows)]

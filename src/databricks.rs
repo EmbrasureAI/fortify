@@ -313,7 +313,7 @@ impl DatabricksClient {
         );
         headers.insert(
             header::USER_AGENT,
-            header::HeaderValue::from_static(concat!("embrasure/", env!("CARGO_PKG_VERSION"))),
+            header::HeaderValue::from_static(concat!("fortify/", env!("CARGO_PKG_VERSION"))),
         );
         Ok(headers)
     }

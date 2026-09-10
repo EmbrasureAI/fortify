@@ -23,9 +23,9 @@ if (Test-Path -LiteralPath $OutputDirectory) {
     throw "Manifest output directory already exists: ${OutputDirectory}"
 }
 
-$archiveName = "embrasure-${Version}-x86_64-pc-windows-msvc.zip"
-$archiveUrl = "https://github.com/EmbrasureAI/embrasure-cli/releases/download/v${Version}/${archiveName}"
-$packageRoot = "embrasure-${Version}-x86_64-pc-windows-msvc"
+$archiveName = "fortify-${Version}-x86_64-pc-windows-msvc.zip"
+$archiveUrl = "https://github.com/EmbrasureAI/fortify/releases/download/v${Version}/${archiveName}"
+$packageRoot = "fortify-${Version}-x86_64-pc-windows-msvc"
 $replacements = @{
     '@VERSION@' = $Version
     '@SHA256@' = $ArchiveSha256.ToUpperInvariant()

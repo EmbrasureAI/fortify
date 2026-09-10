@@ -5,6 +5,10 @@ on:
     branches: [main]
   pull_request:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
 permissions:
   contents: read
 
@@ -16,8 +20,14 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Install through the documented action
         uses: ./
+        env:
+          FORTIFY_REPOSITORY: ${{ github.repository }}
+        with:
+          version: 0.5.4
       - name: Verify the installed CLI
-        run: embrasure --version | grep '^embrasure '
+        run: |
+          fortify --version | grep '^embrasure 0.5.4'
+          embrasure --version | grep '^embrasure 0.5.4'
 
   rust:
     runs-on: ubuntu-24.04
@@ -33,9 +43,10 @@ jobs:
           python-version: "3.12"
       - run: python3 -m pip install --require-hashes -r packaging/sqlglot-requirements.txt
       - run: cargo fmt --check
-      - run: cargo clippy --all-targets --all-features -- -D warnings
+      - run: cargo clippy --locked --all-targets --all-features -- -D warnings
       - run: cargo test --locked
       - run: cargo test --locked --all-features
+      - run: python3 packaging/test_installers.py --binary target/debug/fortify
       # Guard the release manifest and packaged file set; this project is not published to crates.io.
       - run: cargo package --locked
 
@@ -44,6 +55,12 @@ jobs:
     steps:
       - name: Check out source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Validate PowerShell sources with Windows PowerShell 5.1
+        shell: powershell
+        run: .\packaging\windows\Test-PowerShell.ps1
+      - name: Validate PowerShell sources with PowerShell 7
+        shell: pwsh
+        run: .\packaging\windows\Test-PowerShell.ps1
       - name: Install Rust
         shell: pwsh
         run: |
@@ -58,32 +75,30 @@ jobs:
       - name: Test Windows runtime
         run: |
           cargo clippy --locked --target x86_64-pc-windows-msvc --all-targets --all-features -- -D warnings
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cargo test --locked --target x86_64-pc-windows-msvc
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cargo test --locked --all-features --target x86_64-pc-windows-msvc
-          cargo build --release --locked --target x86_64-pc-windows-msvc
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo build --release --locked --bin fortify --target x86_64-pc-windows-msvc
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Verify Windows executable metadata
         shell: pwsh
         run: |
           $metadata = cargo metadata --no-deps --format-version 1 | ConvertFrom-Json
-          $version = ($metadata.packages | Where-Object name -eq 'embrasure-cli').version
-          if (-not $version) { throw 'Could not resolve the Embrasure package version.' }
-          .\packaging\windows\Test-PeMetadata.ps1 -BinaryPath .\target\x86_64-pc-windows-msvc\release\embrasure.exe -Version $version
-      - name: Validate PowerShell sources with Windows PowerShell 5.1
-        shell: powershell
-        run: .\packaging\windows\Test-PowerShell.ps1
-      - name: Validate PowerShell sources with PowerShell 7
-        shell: pwsh
-        run: .\packaging\windows\Test-PowerShell.ps1
+          $version = ($metadata.packages | Where-Object name -eq 'fortify-cli').version
+          if (-not $version) { throw 'Could not resolve the Fortify package version.' }
+          .\packaging\windows\Test-PeMetadata.ps1 -BinaryPath .\target\x86_64-pc-windows-msvc\release\fortify.exe -Version $version
       - name: Package and test Windows archive
         shell: pwsh
         run: |
           $version = (cargo metadata --no-deps --format-version 1 | ConvertFrom-Json).packages[0].version
-          $package = "embrasure-${version}-x86_64-pc-windows-msvc"
-          $working = Join-Path $env:RUNNER_TEMP 'Embrasure archive ü'
+          $package = "fortify-${version}-x86_64-pc-windows-msvc"
+          $working = Join-Path $env:RUNNER_TEMP 'Fortify archive ü'
           $payload = Join-Path $working $package
           $archive = Join-Path $working "${package}.zip"
           .\packaging\windows\Stage-Payload.ps1 `
-            -BinaryPath .\target\x86_64-pc-windows-msvc\release\embrasure.exe `
+            -BinaryPath .\target\x86_64-pc-windows-msvc\release\fortify.exe `
             -OutputDirectory $payload
           Compress-Archive -LiteralPath $payload -DestinationPath $archive
           .\packaging\windows\Test-Installer.ps1 `
@@ -99,7 +114,7 @@ jobs:
             -Version $version `
             -ArchiveSha256 (Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash `
             -OutputDirectory $manifestRoot
-          Get-Content -LiteralPath (Join-Path $manifestRoot 'scoop\embrasure.json') -Raw | ConvertFrom-Json | Out-Null
+          Get-Content -LiteralPath (Join-Path $manifestRoot 'scoop\fortify.json') -Raw | ConvertFrom-Json | Out-Null
           $unresolvedTokens = @(Get-ChildItem -LiteralPath $manifestRoot -Recurse -File | Select-String -Pattern '@[A-Z_]+@')
           if ($unresolvedTokens.Count -ne 0) {
             throw 'Generated package-manager manifests contain an unresolved token.'
@@ -109,7 +124,7 @@ jobs:
           Copy-Item -LiteralPath .\install.ps1 -Destination .\ci-windows-dist
           Compress-Archive `
             -Path (Join-Path $manifestRoot '*') `
-            -DestinationPath ".\ci-windows-dist\embrasure-${version}-windows-package-manifests.zip"
+            -DestinationPath ".\ci-windows-dist\fortify-${version}-windows-package-manifests.zip"
       - name: Upload Windows acceptance-test files
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
@@ -136,12 +151,12 @@ jobs:
         run: |
           $archive = @(Get-ChildItem `
             -LiteralPath .\windows-acceptance-test `
-            -Filter 'embrasure-*-x86_64-pc-windows-msvc.zip' `
+            -Filter 'fortify-*-x86_64-pc-windows-msvc.zip' `
             -File)
           if ($archive.Count -ne 1) {
             throw "Expected one Windows x64 archive; found $($archive.Count)."
           }
-          $version = if ($archive[0].Name -match '^embrasure-(\d+\.\d+\.\d+)-') {
+          $version = if ($archive[0].Name -match '^fortify-(\d+\.\d+\.\d+)-') {
             $Matches[1]
           } else {
             throw "Could not parse the package version from $($archive[0].Name)."

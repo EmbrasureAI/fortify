@@ -921,6 +921,7 @@ fn default_threads() -> u16 {
 fn default_dbt_command() -> String {
     "dbt".into()
 }
+// Preserve the warehouse namespace so existing runs remain discoverable by clean.
 fn default_schema_prefix() -> String {
     "EMBRASURE_CHECK".into()
 }
@@ -1008,7 +1009,7 @@ accounts:
 
     #[test]
     fn example_config_stays_valid() {
-        let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("embrasure-check.example.yml");
+        let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("fortify-check.example.yml");
         Config::load(&path).unwrap();
     }
 

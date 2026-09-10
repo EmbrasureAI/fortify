@@ -21,7 +21,7 @@ foreach ($script in $scripts) {
 $updateSource = Get-Content -LiteralPath (Join-Path $PSScriptRoot '..\..\src\update.rs') -Raw
 if ($updateSource -notmatch 'include_str!\("\.\./install\.ps1"\)' -or
     $updateSource -notmatch '"-ExecutionPolicy",\s*\r?\n\s*"Bypass"' -or
-    $updateSource -notmatch '\.prefix\("embrasure-update-"\)' -or
+    $updateSource -notmatch '\.prefix\("fortify-update-"\)' -or
     $updateSource -match '\.msi') {
     throw 'The Windows updater must embed the canonical ZIP installer, use its private temp prefix, and use no MSI path.'
 }
@@ -35,12 +35,12 @@ if ($installerSource -notmatch 'Net\.SecurityProtocolType\]::Tls12' -or
 
 . (Join-Path $PSScriptRoot '..\..\install.ps1')
 
-if ((Resolve-EmbrasureVersion -RequestedVersion '1.2.3') -ne '1.2.3') {
+if ((Resolve-FortifyVersion -RequestedVersion '1.2.3') -ne '1.2.3') {
     throw 'Version validation failed.'
 }
 foreach ($invalidVersion in @('v1.2.3', '1.2', '1.2.3-beta', '01.2.3', 'vv1.2.3', '../1.2.3')) {
     try {
-        Resolve-EmbrasureVersion -RequestedVersion $invalidVersion | Out-Null
+        Resolve-FortifyVersion -RequestedVersion $invalidVersion | Out-Null
         throw "Malformed version was accepted: ${invalidVersion}"
     }
     catch {
@@ -48,9 +48,48 @@ foreach ($invalidVersion in @('v1.2.3', '1.2', '1.2.3-beta', '01.2.3', 'vv1.2.3'
     }
 }
 
-$testRoot = Join-Path ([IO.Path]::GetTempPath()) ("embrasure-powershell-test-$([guid]::NewGuid())")
+$testRoot = Join-Path ([IO.Path]::GetTempPath()) ("fortify-powershell-test-$([guid]::NewGuid())")
 New-Item -ItemType Directory -Path $testRoot | Out-Null
 try {
+    $owned = Join-Path $testRoot 'owned'
+    New-Item -ItemType Directory -Path $owned | Out-Null
+    $legacyMarker = Join-Path $owned '.embrasure-install'
+    Set-Content -LiteralPath $legacyMarker -Value 'EmbrasureAI.Embrasure' -Encoding ASCII
+    if (-not (Test-OwnedInstallDirectory -Path $owned)) { throw 'Legacy ownership was rejected.' }
+    Set-Content -LiteralPath $legacyMarker -Value 'EmbrasureAI.Fortify' -Encoding ASCII
+    if (Test-OwnedInstallDirectory -Path $owned) { throw 'Mismatched ownership was accepted.' }
+    Remove-Item -LiteralPath $legacyMarker
+    Set-Content -LiteralPath (Join-Path $owned '.fortify-install') -Value 'EmbrasureAI.Fortify' -Encoding ASCII
+    if (-not (Test-OwnedInstallDirectory -Path $owned)) { throw 'Fortify ownership was rejected.' }
+
+    $manifests = Join-Path $testRoot 'manifests'
+    & (Join-Path $PSScriptRoot 'New-PackageManifests.ps1') `
+        -Version '0.6.0' -ArchiveSha256 ('a' * 64) -OutputDirectory $manifests
+    $scoopdir = Join-Path $testRoot 'scoop'
+    $globaldir = Join-Path $testRoot 'scoop-global'
+    foreach ($package in @('fortify', 'embrasure')) {
+        $other = if ($package -eq 'fortify') { 'embrasure' } else { 'fortify' }
+        $manifest = Get-Content -LiteralPath (Join-Path $manifests "scoop\${package}.json") -Raw | ConvertFrom-Json
+        if ($manifest.bin.Count -ne 2 -or $manifest.extract_dir -ne 'fortify-0.6.0-x86_64-pc-windows-msvc') {
+            throw "Invalid ${package} package aliases or archive layout."
+        }
+        Invoke-Expression $manifest.pre_install
+        foreach ($base in @($scoopdir, $globaldir)) {
+            $conflict = Join-Path $base "apps\${other}\current"
+            New-Item -ItemType Directory -Path $conflict -Force | Out-Null
+            try {
+                Invoke-Expression $manifest.pre_install
+                throw 'Scoop accepted conflicting package ownership.'
+            }
+            catch {
+                if ($_.Exception.Message -eq 'Scoop accepted conflicting package ownership.') { throw }
+            }
+            finally {
+                Remove-Item -LiteralPath $conflict -Recurse -Force
+            }
+        }
+    }
+
     $checksumFile = Join-Path $testRoot 'SHA256SUMS'
     $validHash = 'a' * 64
     Set-Content -LiteralPath $checksumFile -Value "${validHash}  artifact.zip" -Encoding ASCII
@@ -78,10 +117,10 @@ try {
     $hashFixture = Join-Path $testRoot 'artifact.zip'
     Set-Content -LiteralPath $hashFixture -Value 'original package' -Encoding ASCII
     $expectedHash = (Get-FileHash -LiteralPath $hashFixture -Algorithm SHA256).Hash
-    Assert-EmbrasureHash -Path $hashFixture -Expected $expectedHash
+    Assert-FortifyHash -Path $hashFixture -Expected $expectedHash
     Add-Content -LiteralPath $hashFixture -Value 'mutation' -Encoding ASCII
     try {
-        Assert-EmbrasureHash -Path $hashFixture -Expected $expectedHash
+        Assert-FortifyHash -Path $hashFixture -Expected $expectedHash
         throw 'Altered archive passed checksum verification.'
     }
     catch {
@@ -93,7 +132,7 @@ try {
     $unsafeArchive = Join-Path $testRoot 'unsafe.zip'
     $zip = [IO.Compression.ZipFile]::Open($unsafeArchive, [IO.Compression.ZipArchiveMode]::Create)
     try {
-        [void]$zip.CreateEntry('embrasure-1.2.3-x86_64-pc-windows-msvc/../escape.txt')
+        [void]$zip.CreateEntry('fortify-1.2.3-x86_64-pc-windows-msvc/../escape.txt')
     }
     finally {
         $zip.Dispose()
@@ -101,18 +140,18 @@ try {
     try {
         Assert-SafeZipArchive `
             -Path $unsafeArchive `
-            -ExpectedRoot 'embrasure-1.2.3-x86_64-pc-windows-msvc'
+            -ExpectedRoot 'fortify-1.2.3-x86_64-pc-windows-msvc'
         throw 'Archive traversal path was accepted.'
     }
     catch {
         if ($_.Exception.Message -eq 'Archive traversal path was accepted.') { throw }
     }
 
-    if (-not (Test-SamePath -Left 'C:\Tools\Embrasure\bin\' -Right 'c:\tools\embrasure\bin')) {
+    if (-not (Test-SamePath -Left 'C:\Tools\Fortify\bin\' -Right 'c:\tools\fortify\bin')) {
         throw 'Equivalent Windows PATH entries were not recognized.'
     }
 
-    $safeUpdateDirectory = Join-Path ([IO.Path]::GetTempPath()) "embrasure-update-$([guid]::NewGuid().ToString('N'))"
+    $safeUpdateDirectory = Join-Path ([IO.Path]::GetTempPath()) "fortify-update-$([guid]::NewGuid().ToString('N'))"
     $safeUpdateArchive = Join-Path $safeUpdateDirectory 'archive.zip'
     if (-not (Test-SamePath `
         -Left (Get-SafeUpdateCleanupDirectory -Path $safeUpdateArchive) `

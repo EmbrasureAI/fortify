@@ -1,5 +1,5 @@
-name: Install Embrasure
-description: Install a verified Embrasure CLI release and add it to PATH.
+name: Install Fortify
+description: Install a verified Fortify CLI release and add it to PATH.
 inputs:
   version:
     description: Release version without the leading v. Defaults to the latest release.
@@ -8,14 +8,14 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: Install Embrasure
+    - name: Install Fortify
       shell: bash
       env:
-        EMBRASURE_VERSION_INPUT: ${{ inputs.version }}
-        EMBRASURE_INSTALL_DIR: ${{ runner.temp }}/embrasure/bin
+        FORTIFY_VERSION_INPUT: ${{ inputs.version }}
+        FORTIFY_INSTALL_DIR: ${{ runner.temp }}/fortify/bin
       run: |
-        if [[ "${EMBRASURE_VERSION_INPUT}" != "latest" ]]; then
-          export EMBRASURE_VERSION="${EMBRASURE_VERSION_INPUT}"
+        if [[ "${FORTIFY_VERSION_INPUT}" != "latest" ]]; then
+          export FORTIFY_VERSION="${FORTIFY_VERSION_INPUT}"
         fi
         "${GITHUB_ACTION_PATH}/install.sh"
-        echo "${EMBRASURE_INSTALL_DIR}" >> "${GITHUB_PATH}"
+        echo "${FORTIFY_INSTALL_DIR}" >> "${GITHUB_PATH}"
